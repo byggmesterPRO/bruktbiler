@@ -144,6 +144,20 @@ function mockRespond(event: string, data: any): ApiResult<any> {
         ])
         case 'createPayout': return reply({ id: Date.now() })
         case 'markPayoutPaid': return reply(true)
+        case 'reserveCar': return reply({ id: Date.now(), deposit: Math.floor((mockCars.find((c) => c.id === data.carId)?.price || 0) * 0.05), expiresAt: new Date(Date.now() + 86400000).toISOString() })
+        case 'cancelReservation': return reply(true)
+        case 'getActiveReservation': return reply(null)
+        case 'listFinancingPlans': return reply([
+            { id: 1, car_id: data.carId, down_payment_pct: 20, term_months: 36, interest_pct: 5.5, active: 1 },
+            { id: 2, car_id: data.carId, down_payment_pct: 30, term_months: 24, interest_pct: 4.5, active: 1 },
+        ])
+        case 'setFinancingPlan': return reply({ id: Date.now() })
+        case 'deleteFinancingPlan': return reply(true)
+        case 'applyFinancing': return reply({ id: Date.now(), monthly: 18500, downPayment: 290_000, total: 956_000 })
+        case 'listMyFinancing': return reply([
+            { id: 1, car_id: 1, status: 'approved', sale_price: 1_450_000, down_payment: 290_000, term_months: 36, interest_pct: 5.5, monthly_payment: 18_500, total_payable: 956_000, amount_paid: 37_000, next_due: '2026-06-01', make: 'Audi', model: 'RS6 Avant', year: 2022, image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=900' },
+        ])
+        case 'respondFinancing': return reply(true)
         case 'me':
             return mockMe ? reply(mockMe) : fail('Ikke innlogget')
         case 'logout':
@@ -172,7 +186,13 @@ function mockRespond(event: string, data: any): ApiResult<any> {
         case 'getCar': {
             const car = mockCars.find((c) => c.id === data.id)
             if (!car) return fail('Bilen finnes ikke')
-            const c = { ...car, transferFee: 5000 }
+            const c: any = { ...car, transferFee: 5000,
+                financingPlans: [
+                    { id: 1, down_payment_pct: 20, term_months: 36, interest_pct: 5.5 },
+                    { id: 2, down_payment_pct: 30, term_months: 24, interest_pct: 4.5 },
+                ],
+                reservation: null,
+            }
             if (car.status === 'auction') {
                 c.auction = {
                     id: 100, startPrice: car.price, currentBid: car.price + 50000,

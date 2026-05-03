@@ -205,6 +205,17 @@ lib.callback.register("bruktbiler:getCar", function(_, payload)
     car.wishlisted = MySQL.scalar.await(
         "SELECT 1 FROM bb_wishlist WHERE user_id = ? AND car_id = ?", { user.id, car.id }
     ) ~= nil
+    car.reservation = MySQL.single.await([[
+        SELECT r.id, r.user_id, r.deposit, r.expires_at, u.tlfnr
+        FROM bb_reservations r JOIN bb_users u ON u.id = r.user_id
+        WHERE r.car_id = ? AND r.status = 'active' AND r.expires_at > NOW()
+        LIMIT 1
+    ]], { car.id })
+    car.financingPlans = MySQL.query.await([[
+        SELECT id, down_payment_pct, term_months, interest_pct
+        FROM bb_financing_plans WHERE car_id = ? AND active = 1
+        ORDER BY term_months ASC
+    ]], { car.id }) or {}
     return ok(car)
 end)
 

@@ -275,6 +275,57 @@ local SCHEMA = {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
     [[
+    CREATE TABLE IF NOT EXISTS bb_reservations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        car_id INT NOT NULL,
+        user_id INT NOT NULL,
+        deposit INT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        status ENUM('active','cancelled','converted','expired') NOT NULL DEFAULT 'active',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        INDEX idx_res_car_status (car_id, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_financing_plans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        car_id INT NOT NULL,
+        down_payment_pct INT NOT NULL DEFAULT 20,
+        term_months INT NOT NULL DEFAULT 36,
+        interest_pct DECIMAL(5,2) NOT NULL DEFAULT 5.0,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE,
+        INDEX idx_fin_car (car_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_financing_applications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        plan_id INT NOT NULL,
+        car_id INT NOT NULL,
+        buyer_id INT NOT NULL,
+        status ENUM('pending','approved','rejected','active','completed','cancelled') NOT NULL DEFAULT 'pending',
+        sale_price INT NOT NULL,
+        down_payment INT NOT NULL,
+        term_months INT NOT NULL,
+        interest_pct DECIMAL(5,2) NOT NULL,
+        monthly_payment INT NOT NULL,
+        total_payable INT NOT NULL,
+        amount_paid INT NOT NULL DEFAULT 0,
+        next_due DATE NULL,
+        message TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (plan_id) REFERENCES bb_financing_plans(id) ON DELETE CASCADE,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE,
+        FOREIGN KEY (buyer_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        INDEX idx_finapp_buyer (buyer_id),
+        INDEX idx_finapp_car (car_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
     CREATE TABLE IF NOT EXISTS bb_sessions (
         token VARCHAR(64) PRIMARY KEY,
         user_id INT NOT NULL,
@@ -290,6 +341,8 @@ local DEFAULT_SETTINGS = {
     default_commission_pct = "8",
     auction_increment_min = "1000",
     enable_p2p_chat = "1",
+    reservation_deposit_pct = "5",
+    reservation_default_hours = "24",
 }
 
 function BB_InstallSchema()

@@ -550,6 +550,235 @@ lib.callback.register("bruktbiler:createPayout", function(_, payload)
     return ok({ id = id })
 end)
 
+----------------------------------------------------------------
+-- RESERVATIONS
+----------------------------------------------------------------
+
+lib.callback.register("bruktbiler:reserveCar", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAuth(payload.token)
+    if not user then return err(e) end
+    local carId = tonumber(payload.carId)
+    local hours = tonumber(payload.hours) or 24
+    if not carId then return err("Ugyldig") end
+
+    local car = MySQL.single.await(
+        "SELECT id, price, status, make, model, assigned_seller_id FROM bb_cars WHERE id = ?", { carId }
+    )
+    if not car then return err("Bil finnes ikke") end
+    if car.status ~= "available" then return err("Bilen er ikke tilgjengelig for reservasjon") end
+
+    local existing = MySQL.scalar.await([[
+        SELECT id FROM bb_reservations
+        WHERE car_id = ? AND status = 'active' AND expires_at > NOW()
+    ]], { carId })
+    if existing then return err("Bilen er allerede reservert") end
+
+    local depositPct = BB_GetSettingInt("reservation_deposit_pct", 5)
+    local deposit = math.floor(car.price * depositPct / 100)
+    local expiresAt = os.date("%Y-%m-%d %H:%M:%S", os.time() + hours * 3600)
+
+    local id = MySQL.insert.await([[
+        INSERT INTO bb_reservations (car_id, user_id, deposit, expires_at)
+        VALUES (?, ?, ?, ?)
+    ]], { carId, user.id, deposit, expiresAt })
+
+    if car.assigned_seller_id then
+        BB_Notify(car.assigned_seller_id, "system",
+            "Bil reservert: " .. car.make .. " " .. car.model,
+            ("%s reserverte for %d kr depositum til %s"):format(user.tlfnr, deposit, expiresAt),
+            carId)
+    end
+    BB_Audit(user, "reserve_car", "car", carId, { hours = hours, deposit = deposit })
+    return ok({ id = id, deposit = deposit, expiresAt = expiresAt })
+end)
+
+lib.callback.register("bruktbiler:cancelReservation", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAuth(payload.token)
+    if not user then return err(e) end
+    local id = tonumber(payload.id)
+    if not id then return err("Ugyldig") end
+    local r = MySQL.single.await("SELECT * FROM bb_reservations WHERE id = ?", { id })
+    if not r then return err("Finnes ikke") end
+    if r.user_id ~= user.id and user.is_admin ~= 1 then return err("Ikke din reservasjon") end
+    MySQL.query.await("UPDATE bb_reservations SET status = 'cancelled' WHERE id = ?", { id })
+    BB_Audit(user, "cancel_reservation", "reservation", id)
+    return ok(true)
+end)
+
+lib.callback.register("bruktbiler:getActiveReservation", function(_, payload)
+    payload = payload or {}
+    local _, e = BB_RequireAuth(payload.token)
+    if e then return err(e) end
+    local row = MySQL.single.await([[
+        SELECT r.*, u.tlfnr, u.name
+        FROM bb_reservations r JOIN bb_users u ON u.id = r.user_id
+        WHERE r.car_id = ? AND r.status = 'active' AND r.expires_at > NOW()
+        ORDER BY r.id DESC LIMIT 1
+    ]], { tonumber(payload.carId) })
+    return ok(row)
+end)
+
+CreateThread(function()
+    while true do
+        Wait(60000)
+        pcall(function()
+            MySQL.query.await([[
+                UPDATE bb_reservations SET status = 'expired'
+                WHERE status = 'active' AND expires_at <= NOW()
+            ]])
+        end)
+    end
+end)
+
+----------------------------------------------------------------
+-- FINANCING
+----------------------------------------------------------------
+
+local function calcMonthly(principal, annualPct, months)
+    if months <= 0 then return principal end
+    local r = (annualPct / 100) / 12
+    if r == 0 then return math.floor(principal / months) end
+    local m = principal * r * (1 + r) ^ months / ((1 + r) ^ months - 1)
+    return math.floor(m + 0.5)
+end
+
+lib.callback.register("bruktbiler:listFinancingPlans", function(_, payload)
+    payload = payload or {}
+    local _, e = BB_RequireAuth(payload.token)
+    if e then return err(e) end
+    local rows = MySQL.query.await([[
+        SELECT id, car_id, down_payment_pct, term_months, interest_pct, active
+        FROM bb_financing_plans
+        WHERE car_id = ? AND active = 1
+        ORDER BY term_months ASC
+    ]], { tonumber(payload.carId) }) or {}
+    return ok(rows)
+end)
+
+lib.callback.register("bruktbiler:setFinancingPlan", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireSeller(payload.token)
+    if not user then return err(e) end
+    local carId = tonumber(payload.carId)
+    if not carId then return err("Ugyldig") end
+
+    local car = MySQL.single.await(
+        "SELECT assigned_seller_id, seller_user_id FROM bb_cars WHERE id = ?", { carId }
+    )
+    if not car then return err("Bil finnes ikke") end
+    if user.is_admin ~= 1 and car.assigned_seller_id ~= user.id then
+        return err("Bare ansvarlig selger eller admin")
+    end
+
+    local id = MySQL.insert.await([[
+        INSERT INTO bb_financing_plans (car_id, down_payment_pct, term_months, interest_pct)
+        VALUES (?, ?, ?, ?)
+    ]], { carId, tonumber(payload.downPaymentPct) or 20,
+          tonumber(payload.termMonths) or 36,
+          tonumber(payload.interestPct) or 5.0 })
+    BB_Audit(user, "create_financing_plan", "car", carId, { planId = id })
+    return ok({ id = id })
+end)
+
+lib.callback.register("bruktbiler:deleteFinancingPlan", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireSeller(payload.token)
+    if not user then return err(e) end
+    MySQL.query.await("UPDATE bb_financing_plans SET active = 0 WHERE id = ?",
+        { tonumber(payload.id) })
+    return ok(true)
+end)
+
+lib.callback.register("bruktbiler:applyFinancing", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAuth(payload.token)
+    if not user then return err(e) end
+    local planId = tonumber(payload.planId)
+    if not planId then return err("Ugyldig") end
+
+    local plan = MySQL.single.await("SELECT * FROM bb_financing_plans WHERE id = ?", { planId })
+    if not plan then return err("Plan finnes ikke") end
+    local car = MySQL.single.await(
+        "SELECT id, price, make, model, assigned_seller_id FROM bb_cars WHERE id = ?", { plan.car_id }
+    )
+    if not car then return err("Bil finnes ikke") end
+
+    local salePrice = car.price
+    local downPayment = math.floor(salePrice * plan.down_payment_pct / 100)
+    local financed = salePrice - downPayment
+    local monthly = calcMonthly(financed, tonumber(plan.interest_pct), plan.term_months)
+    local total = downPayment + monthly * plan.term_months
+
+    local id = MySQL.insert.await([[
+        INSERT INTO bb_financing_applications
+            (plan_id, car_id, buyer_id, status, sale_price, down_payment, term_months,
+             interest_pct, monthly_payment, total_payable, message)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+    ]], { planId, plan.car_id, user.id, salePrice, downPayment, plan.term_months,
+          plan.interest_pct, monthly, total, tostring(payload.message or "") })
+
+    if car.assigned_seller_id then
+        BB_Notify(car.assigned_seller_id, "system",
+            "Finansieringssoknad: " .. car.make .. " " .. car.model,
+            ("%s soker finansiering - %d mnd, %d kr/mnd"):format(user.tlfnr, plan.term_months, monthly),
+            car.id)
+    end
+    BB_Audit(user, "apply_financing", "car", car.id, { applicationId = id })
+    return ok({ id = id, monthly = monthly, total = total, downPayment = downPayment })
+end)
+
+lib.callback.register("bruktbiler:listMyFinancing", function(_, payload)
+    local user, e = BB_RequireAuth((payload or {}).token)
+    if not user then return err(e) end
+    local rows = MySQL.query.await([[
+        SELECT a.*, c.make, c.model, c.year, c.image
+        FROM bb_financing_applications a
+        JOIN bb_cars c ON c.id = a.car_id
+        WHERE a.buyer_id = ? ORDER BY a.created_at DESC
+    ]], { user.id }) or {}
+    return ok(rows)
+end)
+
+lib.callback.register("bruktbiler:respondFinancing", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireSeller(payload.token)
+    if not user then return err(e) end
+    local id = tonumber(payload.id)
+    local action = tostring(payload.action or "")
+    if not id then return err("Ugyldig") end
+    local app = MySQL.single.await("SELECT * FROM bb_financing_applications WHERE id = ?", { id })
+    if not app then return err("Finnes ikke") end
+
+    if action == "approve" then
+        MySQL.query.await([[
+            UPDATE bb_financing_applications SET status = 'approved', next_due = DATE_ADD(CURDATE(), INTERVAL 1 MONTH)
+            WHERE id = ?
+        ]], { id })
+        BB_Notify(app.buyer_id, "system", "Finansiering godkjent",
+            ("Manedlig betaling: %d kr"):format(app.monthly_payment), app.car_id)
+        BB_Audit(user, "approve_financing", "financing_application", id)
+    elseif action == "reject" then
+        MySQL.query.await("UPDATE bb_financing_applications SET status = 'rejected' WHERE id = ?", { id })
+        BB_Notify(app.buyer_id, "system", "Finansiering avvist", "", app.car_id)
+        BB_Audit(user, "reject_financing", "financing_application", id)
+    elseif action == "payment" then
+        local amount = tonumber(payload.amount) or app.monthly_payment
+        local newPaid = (app.amount_paid or 0) + amount
+        local newStatus = newPaid >= app.total_payable and "completed" or "active"
+        MySQL.query.await([[
+            UPDATE bb_financing_applications
+            SET amount_paid = ?, status = ?, next_due = DATE_ADD(next_due, INTERVAL 1 MONTH)
+            WHERE id = ?
+        ]], { newPaid, newStatus, id })
+        BB_Audit(user, "register_financing_payment", "financing_application", id, { amount = amount })
+    else
+        return err("Ukjent handling")
+    end
+    return ok(true)
+end)
+
 lib.callback.register("bruktbiler:markPayoutPaid", function(_, payload)
     payload = payload or {}
     local user, e = BB_RequireAuth(payload.token)

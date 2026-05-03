@@ -12,6 +12,8 @@ type Car = {
     transferFee?: number;
     images?: { id: number; url: string }[];
     wishlisted?: boolean;
+    reservation?: { id: number; user_id: number; deposit: number; expires_at: string; tlfnr: string } | null;
+    financingPlans?: { id: number; down_payment_pct: number; term_months: number; interest_pct: number }[];
     assignedOfficeName?: string | null; assignedSellerTlfnr?: string | null;
     auction?: {
         id: number; startPrice: number; currentBid: number;
@@ -180,11 +182,41 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
             <h3 className="section-title">Beskrivelse</h3>
             <p className="description">{car.description || 'Ingen beskrivelse.'}</p>
 
+            {car.reservation && (
+                <div className="auction-box" style={{ borderColor: 'rgba(110,168,255,0.4)' }}>
+                    <div style={{ fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+                        Reservert
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: '0.85rem' }}>
+                        Av {car.reservation.tlfnr} · depositum {formatNok(car.reservation.deposit)}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.72rem', marginTop: 2 }}>
+                        Utloper {new Date(car.reservation.expires_at).toLocaleString('no-NO')}
+                    </div>
+                </div>
+            )}
+
+            {car.financingPlans && car.financingPlans.length > 0 && (
+                <FinancingPanel carId={car.id} price={car.price} plans={car.financingPlans} />
+            )}
+
             <OffersPanel carId={car.id} />
 
 
             <div style={{ height: 20 }} />
             <button className="btn btn-gold btn-block" onClick={() => setShowOffer(true)}>Send tilbud</button>
+            {!car.reservation && car.status === 'available' && (
+                <button className="btn btn-block" style={{ marginTop: 8 }} onClick={async () => {
+                    const res = await api<{ deposit: number; expiresAt: string }>('reserveCar', {
+                        token: getToken(), carId: car.id, hours: 24,
+                    })
+                    if (res.ok) {
+                        setSuccess(`Reservert! Depositum ${formatNok(res.data.deposit)}`)
+                        await load()
+                        setTimeout(() => setSuccess(null), 3000)
+                    } else setError(res.error)
+                }}>Reserver i 24t</button>
+            )}
             <button className="btn btn-block" style={{ marginTop: 8 }} onClick={() => setShowInterest(true)}>Vis interesse</button>
             <div className="row" style={{ gap: '0.4rem', marginTop: 8 }}>
                 <button className="btn btn-ghost" style={{ flex: 1 }} onClick={async () => {
@@ -275,6 +307,60 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
                     </div>
                 </div>
             )}
+        </div>
+    )
+}
+
+function FinancingPanel({ carId, price, plans }: {
+    carId: number; price: number;
+    plans: { id: number; down_payment_pct: number; term_months: number; interest_pct: number }[]
+}) {
+    const [applied, setApplied] = useState<string | null>(null)
+
+    const apply = async (planId: number) => {
+        const res = await api<{ monthly: number; downPayment: number; total: number }>(
+            'applyFinancing', { token: getToken(), planId, message: '' }
+        )
+        if (res.ok) {
+            setApplied(`Sokt — ${formatNok(res.data.monthly)}/mnd, ${formatNok(res.data.downPayment)} innskudd`)
+            setTimeout(() => setApplied(null), 4000)
+        }
+    }
+
+    return (
+        <div style={{ marginTop: '1rem' }}>
+            <h3 className="section-title">Finansiering</h3>
+            <p className="muted" style={{ fontSize: '0.78rem', marginTop: 0 }}>
+                Del opp pris over flere maneder. Selger godkjenner.
+            </p>
+            {applied && <div className="success-banner">{applied}</div>}
+            <div className="col">
+                {plans.map((p) => {
+                    const down = Math.floor(price * p.down_payment_pct / 100)
+                    const financed = price - down
+                    const r = (Number(p.interest_pct) / 100) / 12
+                    const monthly = r === 0 ? Math.floor(financed / p.term_months)
+                        : Math.floor(financed * r * Math.pow(1 + r, p.term_months) / (Math.pow(1 + r, p.term_months) - 1))
+                    return (
+                        <div key={p.id} className="card" style={{ padding: '0.7rem 0.8rem' }}>
+                            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                <div>
+                                    <div style={{ fontWeight: 500 }}>{p.term_months} mnd</div>
+                                    <div className="meta" style={{ fontSize: '0.72rem' }}>
+                                        {p.down_payment_pct}% innskudd · {p.interest_pct}% rente
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ color: 'var(--gold)', fontWeight: 600 }}>{formatNok(monthly)}/mnd</div>
+                                    <div className="meta" style={{ fontSize: '0.7rem' }}>{formatNok(down)} innskudd</div>
+                                </div>
+                            </div>
+                            <button className="btn btn-ghost btn-block" style={{ marginTop: '0.5rem', padding: '0.4rem' }}
+                                onClick={() => apply(p.id)}>Sok finansiering</button>
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     )
 }

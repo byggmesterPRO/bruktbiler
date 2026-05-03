@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken } from '../auth'
 import { popUp, startCall, formatPhoneNumber, takePhoto, pickFromGallery } from '../lbphone'
+import {
+    IconStats, IconCar, IconCheck, IconHandshake, IconStar, IconBuilding,
+    IconSend, IconBell, IconSettings, IconBack, IconClose,
+} from '../components/Icon'
 import Stats from './Stats'
 import Offices from './Offices'
 import Settings from './Settings'
@@ -9,7 +13,21 @@ import Broadcast from './Broadcast'
 import AuditLog from './AuditLog'
 import OfficeGoals from './OfficeGoals'
 
-type Tab = 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'goals' | 'broadcast' | 'audit' | 'settings'
+type Tab = 'home' | 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'goals' | 'broadcast' | 'audit' | 'settings'
+
+const TILES: { id: Exclude<Tab, 'home'>; label: string; sub: string; Icon: any; color: string }[] = [
+    { id: 'stats',     label: 'Statistikk', sub: 'Omsetning og salg',   Icon: IconStats,    color: '#d4af37' },
+    { id: 'pending',   label: 'Venter',     sub: 'Annonser til godkj.', Icon: IconCheck,    color: '#4ade80' },
+    { id: 'cars',      label: 'Biler',      sub: 'Alle biler',          Icon: IconCar,      color: '#6ea8ff' },
+    { id: 'auctions',  label: 'Auksjoner',  sub: 'Start og avslutt',    Icon: IconHandshake,color: '#e6c659' },
+    { id: 'interests', label: 'Interesser', sub: 'Alle interessenter',  Icon: IconStar,     color: '#d4af37' },
+    { id: 'users',     label: 'Brukere',    sub: 'Tlfnr og passord',    Icon: IconBell,     color: '#9ca3af' },
+    { id: 'offices',   label: 'Kontorer',   sub: 'Selger-kontor',       Icon: IconBuilding, color: '#6ea8ff' },
+    { id: 'goals',     label: 'Mal og lonn',sub: 'Bonuspool og payouts',Icon: IconStats,    color: '#4ade80' },
+    { id: 'broadcast', label: 'Kunngjor',   sub: 'Send til mange',      Icon: IconSend,     color: '#e6c659' },
+    { id: 'audit',     label: 'Logg',       sub: 'Audit-historikk',     Icon: IconBell,     color: '#9ca3af' },
+    { id: 'settings',  label: 'Innst.',     sub: 'Gebyr og provisjon',  Icon: IconSettings, color: '#9ca3af' },
+]
 
 type User = {
     id: number; tlfnr: string; name: string; is_admin: number; created_at: string;
@@ -27,23 +45,34 @@ type Interest = {
 }
 
 export default function Admin() {
-    const [tab, setTab] = useState<Tab>('stats')
+    const [tab, setTab] = useState<Tab>('home')
 
+    if (tab === 'home') {
+        return (
+            <div>
+                <h2 className="section-title" style={{ marginTop: 0 }}>Admin-panel</h2>
+                <p className="muted" style={{ fontSize: '0.78rem', marginTop: 0 }}>Velg en seksjon</p>
+                <div className="admin-tile-grid">
+                    {TILES.map((t) => (
+                        <button key={t.id} className="admin-tile" onClick={() => setTab(t.id)}>
+                            <span className="admin-tile-icon" style={{ background: t.color + '22', color: t.color }}>
+                                <t.Icon width={20} height={20} />
+                            </span>
+                            <span className="admin-tile-label">{t.label}</span>
+                            <span className="admin-tile-sub">{t.sub}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    const tile = TILES.find((t) => t.id === tab)
     return (
         <div>
-            <h2 className="section-title" style={{ marginTop: 0 }}>Admin-panel</h2>
-            <div className="tabs">
-                <button className={tab === 'stats' ? 'active' : ''} onClick={() => setTab('stats')}>Statistikk</button>
-                <button className={tab === 'cars' ? 'active' : ''} onClick={() => setTab('cars')}>Biler</button>
-                <button className={tab === 'pending' ? 'active' : ''} onClick={() => setTab('pending')}>Venter</button>
-                <button className={tab === 'auctions' ? 'active' : ''} onClick={() => setTab('auctions')}>Auksjoner</button>
-                <button className={tab === 'interests' ? 'active' : ''} onClick={() => setTab('interests')}>Interesser</button>
-                <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Brukere</button>
-                <button className={tab === 'offices' ? 'active' : ''} onClick={() => setTab('offices')}>Kontor</button>
-                <button className={tab === 'goals' ? 'active' : ''} onClick={() => setTab('goals')}>Mal/lonn</button>
-                <button className={tab === 'broadcast' ? 'active' : ''} onClick={() => setTab('broadcast')}>Kunngjor</button>
-                <button className={tab === 'audit' ? 'active' : ''} onClick={() => setTab('audit')}>Logg</button>
-                <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Innst.</button>
+            <div className="row" style={{ alignItems: 'center', marginBottom: '0.5rem' }}>
+                <button className="icon-btn" onClick={() => setTab('home')}><IconBack width={16} height={16} /></button>
+                <h2 className="section-title" style={{ margin: '0 0 0 0.6rem' }}>{tile?.label}</h2>
             </div>
             {tab === 'stats' && <Stats />}
             {tab === 'cars' && <AdminCars />}

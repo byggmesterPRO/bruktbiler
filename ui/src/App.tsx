@@ -16,6 +16,7 @@ import PriceAlerts from './views/PriceAlerts'
 import MyOffers from './views/MyOffers'
 import Earnings from './views/Earnings'
 import ValueEstimate from './views/ValueEstimate'
+import MyFinancing from './views/MyFinancing'
 import Frame from './components/Frame'
 import {
     IconCar, IconHandshake, IconStar, IconChat, IconBell, IconSettings, IconLogout,
@@ -29,7 +30,7 @@ function Shell() {
     const { me, loading, login, register, logout } = useAuth()
     const [view, setView] = useState<View>('cars')
     const [carId, setCarId] = useState<number | null>(null)
-    const [mineTab, setMineTab] = useState<'wishlist' | 'offers' | 'interests' | 'threads' | 'alerts' | 'earnings'>('wishlist')
+    const [mineTab, setMineTab] = useState<'wishlist' | 'offers' | 'finance' | 'interests' | 'threads' | 'alerts' | 'earnings'>('wishlist')
     const [unread, setUnread] = useState(0)
 
     useEffect(() => {
@@ -84,6 +85,7 @@ function Shell() {
                         <div className="tabs">
                             <button className={mineTab === 'wishlist' ? 'active' : ''} onClick={() => setMineTab('wishlist')}>Onskeliste</button>
                             <button className={mineTab === 'offers' ? 'active' : ''} onClick={() => setMineTab('offers')}>Tilbud</button>
+                            <button className={mineTab === 'finance' ? 'active' : ''} onClick={() => setMineTab('finance')}>Finansiering</button>
                             <button className={mineTab === 'interests' ? 'active' : ''} onClick={() => setMineTab('interests')}>Interesser</button>
                             <button className={mineTab === 'threads' ? 'active' : ''} onClick={() => setMineTab('threads')}>Samtaler</button>
                             <button className={mineTab === 'alerts' ? 'active' : ''} onClick={() => setMineTab('alerts')}>Varsler</button>
@@ -93,6 +95,7 @@ function Shell() {
                         </div>
                         {mineTab === 'wishlist' && <Wishlist onOpen={openCar} />}
                         {mineTab === 'offers' && <MyOffers onOpen={openCar} />}
+                        {mineTab === 'finance' && <MyFinancing onOpen={openCar} />}
                         {mineTab === 'interests' && <MyInterests onOpen={openCar} />}
                         {mineTab === 'threads' && <Chat />}
                         {mineTab === 'alerts' && <PriceAlerts />}

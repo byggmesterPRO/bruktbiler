@@ -1,12 +1,45 @@
+<p align="center">
+  <img src="screenshots/logo.svg" alt="Bruktbiler" width="480" />
+</p>
+
 # Bruktbiler — LB Phone App
 
-En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone). Komplett bedrift for kjøp, salg, konsignasjon og auksjon av biler — med selger-kontorer, statistikk og full kommunikasjon.
+En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone). Komplett bedrift for kjøp, salg, konsignasjon og auksjon av biler — med selger-kontorer, finansiering, reservering, tilbud-forhandling, statistikk og full kommunikasjon.
+
+## Skjermbilder
+
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/01-login.png" width="220"/><br/><sub>Pålogging</sub></td>
+    <td align="center"><img src="screenshots/02-cars-list.png" width="220"/><br/><sub>Bil-liste</sub></td>
+    <td align="center"><img src="screenshots/03-cars-grid.png" width="220"/><br/><sub>Rutenett-modus</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/04-filter.png" width="220"/><br/><sub>Filter (drawer)</sub></td>
+    <td align="center"><img src="screenshots/05-car-detail.png" width="220"/><br/><sub>Bil-detalj med finansiering + tilbud</sub></td>
+    <td align="center"><img src="screenshots/06-admin-home.png" width="220"/><br/><sub>Admin-hjem (tile-meny)</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/07-admin-stats.png" width="220"/><br/><sub>Statistikk-dashbord</sub></td>
+    <td align="center"><img src="screenshots/08-admin-goals-payouts.png" width="220"/><br/><sub>Mål, bonuspool, payouts</sub></td>
+    <td align="center"><img src="screenshots/09-my-financing.png" width="220"/><br/><sub>Mine finansieringer</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/10-inbox.png" width="220"/><br/><sub>Innboks</sub></td>
+    <td align="center"><img src="screenshots/11-sell.png" width="220"/><br/><sub>Selg en bil</sub></td>
+    <td></td>
+  </tr>
+</table>
 
 ## Funksjoner
 
 ### For kunder
-- **Auth med tlfnr + passord** (SHA-256 + salt)
-- **Søk og filter** på merke, modell, pris, årsmodell, km, type, sortering
+- **Auth med tlfnr + navn + passord** (SHA-256 + salt)
+- **Søk og filter** på merke, modell, pris, årsmodell, km, type, sortering — med drawer + grid/list-toggle
+- **Tilbud / mottilbud** — send pristilbud, selger godtar / avviser / motbud
+- **Reservering** — reserver bil i 24t mot depositum
+- **Finansiering** — søk nedbetalingsplan med valgfri terminlengde og rente
+- **Ønskeliste** + **prisvarsel** — bli varslet når matchende biler dukker opp
 - **Vis interesse** — gir push-varsel + innboks-melding til ansvarlig selger
 - **Auksjoner** med live nedtelling, bud-historikk og auto-utvarsling om utbud
 - **Selg bilen din** — send forespørsel om konsignasjon (i butikk eller med visning hos deg). En selger fra et av kontorene tar over og hjelper deg
