@@ -17,6 +17,12 @@ const TYPE_LABEL: Record<string, string> = {
     consignment_remote: 'Privat (visning)',
     private: 'Privat',
 }
+const TYPE_LABEL_SHORT: Record<string, string> = {
+    dealership: 'Forh.',
+    consignment_in_shop: 'Konsi.',
+    consignment_remote: 'Privat',
+    private: 'Privat',
+}
 
 const GRID_KEY = 'bb_grid'
 
@@ -107,9 +113,9 @@ export default function Cars({ onOpen }: { onOpen: (id: number) => void }) {
                         <div className="car-card-body">
                             <div className="car-card-row">
                                 <span className={c.status === 'auction' ? 'tag tag-blue' : 'tag'}>
-                                    {c.status === 'auction' ? 'Auksjon' : TYPE_LABEL[c.listingType] || 'Bil'}
+                                    {c.status === 'auction' ? 'Auksjon' : (grid === 2 ? TYPE_LABEL_SHORT[c.listingType] : TYPE_LABEL[c.listingType]) || 'Bil'}
                                 </span>
-                                <span className="muted" style={{ fontSize: '0.7rem' }}>{c.year}</span>
+                                <span className="muted" style={{ fontSize: grid === 2 ? '0.62rem' : '0.7rem' }}>{c.year}</span>
                             </div>
                             <h3 className="car-card-title">{c.make} {c.model}</h3>
                             {grid === 1 && (
@@ -117,6 +123,9 @@ export default function Cars({ onOpen }: { onOpen: (id: number) => void }) {
                                     {formatKm(c.mileage)}
                                     {c.assignedOfficeName && <> · {c.assignedOfficeName}</>}
                                 </div>
+                            )}
+                            {grid === 2 && (
+                                <div className="car-card-meta">{formatKm(c.mileage)}</div>
                             )}
                             <div className="car-card-row">
                                 <span className="car-card-price">{formatNok(c.price)}</span>

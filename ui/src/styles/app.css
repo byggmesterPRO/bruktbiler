@@ -558,10 +558,12 @@
     background: transparent;
     border: 1px solid var(--line);
     color: var(--text-dim);
-    font-size: 0.74rem;
-    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+    padding: 0.3rem 0.55rem;
     border-radius: 8px;
     letter-spacing: 0.05em;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .filter-drawer {
@@ -608,9 +610,28 @@
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
 }
-.car-grid-2 .car-card-title { font-size: 0.85rem; }
-.car-grid-2 .car-card-price { font-size: 0.85rem; }
-.car-grid-2 .car-card-body { padding: 0.55rem 0.65rem 0.7rem; }
+.car-grid-2 .car-card-img { aspect-ratio: 4 / 3; }
+.car-grid-2 .car-card-body { padding: 0.5rem 0.55rem 0.65rem; }
+.car-grid-2 .car-card-title {
+    font-size: 0.82rem;
+    margin: 0.15rem 0 0.1rem;
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.car-grid-2 .car-card-price { font-size: 0.82rem; }
+.car-grid-2 .car-card-row { gap: 0.25rem; }
+.car-grid-2 .tag {
+    font-size: 0.55rem;
+    padding: 0.12rem 0.4rem;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+}
+.car-grid-2 .car-card-meta { font-size: 0.65rem; margin-bottom: 0.25rem; }
 
 /* ----- Stats ----- */
 
