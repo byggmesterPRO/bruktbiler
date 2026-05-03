@@ -4,101 +4,225 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 const devMode = !(window as any)?.invokeNative
 
-let mockUsers: any[] = [{ id: 1, tlfnr: '00000000', is_admin: 1, created_at: new Date().toISOString() }]
+let mockUsers: any[] = [
+    { id: 1, tlfnr: '00000000', is_admin: 1, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
+    { id: 2, tlfnr: '11111111', is_admin: 0, created_at: new Date().toISOString(), office_id: 1, office_name: 'Vestfold Bil', office_role: 'seller' },
+    { id: 3, tlfnr: '22222222', is_admin: 0, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
+]
+let mockOffices: any[] = [
+    { id: 1, name: 'Vestfold Bil', logo: '', commission_pct: 8, created_at: new Date().toISOString(), member_count: 1 },
+    { id: 2, name: 'Premium Auto AS', logo: '', commission_pct: 10, created_at: new Date().toISOString(), member_count: 0 },
+]
 let mockCars: any[] = [
     { id: 1, make: 'Audi', model: 'RS6 Avant', year: 2022, price: 1450000, mileage: 18000,
       image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=900',
       description: 'Plettfri RS6 i Mythos Black. Full historikk.',
       status: 'available', listingType: 'dealership', sellerUserId: null, sellerTlfnr: null,
+      assignedOfficeId: 1, assignedOfficeName: 'Vestfold Bil',
+      assignedSellerId: 2, assignedSellerTlfnr: '11111111',
       commissionPct: 0, approved: true, createdAt: new Date().toISOString() },
     { id: 2, make: 'Porsche', model: '911 GT3', year: 2021, price: 2390000, mileage: 9500,
       image: 'https://images.unsplash.com/photo-1611821064430-0d40291922d2?w=900',
       description: 'GT3 i Guards Red, manuell. Ett ar gjenstaende garanti.',
-      status: 'auction', listingType: 'consignment_in_shop', sellerUserId: 2, sellerTlfnr: '12345678',
+      status: 'auction', listingType: 'consignment_in_shop', sellerUserId: 3, sellerTlfnr: '22222222',
+      assignedOfficeId: 1, assignedOfficeName: 'Vestfold Bil',
+      assignedSellerId: 2, assignedSellerTlfnr: '11111111',
       commissionPct: 8, approved: true, createdAt: new Date().toISOString() },
     { id: 3, make: 'BMW', model: 'M3 Competition', year: 2023, price: 1190000, mileage: 12000,
       image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=900',
       description: 'Isle of Man Green, full utstyr.',
-      status: 'available', listingType: 'consignment_remote', sellerUserId: 3, sellerTlfnr: '87654321',
+      status: 'available', listingType: 'consignment_remote', sellerUserId: 3, sellerTlfnr: '22222222',
+      assignedOfficeId: 1, assignedOfficeName: 'Vestfold Bil',
+      assignedSellerId: 2, assignedSellerTlfnr: '11111111',
       commissionPct: 6, approved: true, createdAt: new Date().toISOString() },
+    { id: 4, make: 'Mercedes', model: 'AMG GT', year: 2020, price: 1850000, mileage: 24000,
+      image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=900',
+      description: 'AMG GT 4-dors. Plettfri stand.',
+      status: 'available', listingType: 'dealership', sellerUserId: null, sellerTlfnr: null,
+      assignedOfficeId: 1, assignedOfficeName: 'Vestfold Bil',
+      assignedSellerId: 2, assignedSellerTlfnr: '11111111',
+      commissionPct: 0, approved: true, createdAt: new Date().toISOString() },
 ]
-let mockSessionToken: string | null = null
+let mockMessages: any[] = [
+    { id: 1, type: 'broadcast', title: 'Velkommen til Bruktbiler', body: 'Premium kjop og salg.', link_car_id: null, is_read: 0, created_at: new Date(Date.now() - 3600 * 1000).toISOString() },
+    { id: 2, type: 'interest', title: 'Ny interesse: Audi RS6', body: '11223344: Veldig interessert!', link_car_id: 1, is_read: 0, created_at: new Date(Date.now() - 1800 * 1000).toISOString() },
+]
+let mockSettings: any[] = [
+    { key: 'transfer_fee', value: '5000' },
+    { key: 'default_commission_pct', value: '8' },
+    { key: 'auction_increment_min', value: '1000' },
+]
+let mockSellRequests: any[] = []
+let mockThreads: any[] = []
+let mockChatMessages: Record<number, any[]> = {}
 let mockMe: any = null
 
 function mockRespond(event: string, data: any): ApiResult<any> {
+    const reply = (d: any) => ({ ok: true as const, data: d })
+    const fail = (e: string) => ({ ok: false as const, error: e })
+
     switch (event) {
         case 'login': {
             if (data.tlfnr === '00000000' && data.password === 'admin') {
-                mockSessionToken = 'mock-token-admin'
-                mockMe = { id: 1, tlfnr: '00000000', isAdmin: true }
-                return { ok: true, data: { token: mockSessionToken, isAdmin: true, tlfnr: '00000000' } }
+                mockMe = { id: 1, tlfnr: '00000000', isAdmin: true, isSeller: false, officeId: null }
+                return reply({ token: 't-admin', isAdmin: true, isSeller: false, tlfnr: '00000000' })
+            }
+            if (data.tlfnr === '11111111') {
+                mockMe = { id: 2, tlfnr: '11111111', isAdmin: false, isSeller: true, officeId: 1 }
+                return reply({ token: 't-sel', isAdmin: false, isSeller: true, tlfnr: '11111111' })
             }
             if (data.tlfnr && data.password) {
-                mockSessionToken = 'mock-token-user'
-                mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false }
-                return { ok: true, data: { token: mockSessionToken, isAdmin: false, tlfnr: data.tlfnr } }
+                mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false, isSeller: false, officeId: null }
+                return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr })
             }
-            return { ok: false, error: 'Feil telefonnummer eller passord' }
+            return fail('Feil telefonnummer eller passord')
         }
         case 'register': {
-            mockSessionToken = 'mock-token-user'
-            mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false }
-            return { ok: true, data: { token: mockSessionToken, isAdmin: false, tlfnr: data.tlfnr } }
+            mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false, isSeller: false, officeId: null }
+            return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr })
         }
         case 'me':
-            return mockMe ? { ok: true, data: mockMe } : { ok: false, error: 'Ikke innlogget' }
+            return mockMe ? reply(mockMe) : fail('Ikke innlogget')
         case 'logout':
-            mockSessionToken = null; mockMe = null
-            return { ok: true, data: true }
-        case 'listCars':
-            return { ok: true, data: mockCars.filter((c) => c.approved && (c.status === 'available' || c.status === 'auction')) }
+            mockMe = null
+            return reply(true)
+        case 'listCars': {
+            let cars = mockCars.filter((c) => c.approved && (c.status === 'available' || c.status === 'auction'))
+            const f = data.filter || {}
+            if (f.q) {
+                const q = String(f.q).toLowerCase()
+                cars = cars.filter((c) => `${c.make} ${c.model}`.toLowerCase().includes(q))
+            }
+            if (f.minPrice) cars = cars.filter((c) => c.price >= +f.minPrice)
+            if (f.maxPrice) cars = cars.filter((c) => c.price <= +f.maxPrice)
+            if (f.minYear) cars = cars.filter((c) => c.year >= +f.minYear)
+            if (f.maxYear) cars = cars.filter((c) => c.year <= +f.maxYear)
+            if (f.maxKm) cars = cars.filter((c) => c.mileage <= +f.maxKm)
+            if (f.listingType) cars = cars.filter((c) => c.listingType === f.listingType)
+            if (f.onlyAuction) cars = cars.filter((c) => c.status === 'auction')
+            if (f.sort === 'price_asc') cars = [...cars].sort((a, b) => a.price - b.price)
+            else if (f.sort === 'price_desc') cars = [...cars].sort((a, b) => b.price - a.price)
+            else if (f.sort === 'km_asc') cars = [...cars].sort((a, b) => a.mileage - b.mileage)
+            else if (f.sort === 'year_desc') cars = [...cars].sort((a, b) => b.year - a.year)
+            return reply(cars)
+        }
         case 'getCar': {
             const car = mockCars.find((c) => c.id === data.id)
-            if (!car) return { ok: false, error: 'Bilen finnes ikke' }
-            const c = { ...car }
+            if (!car) return fail('Bilen finnes ikke')
+            const c = { ...car, transferFee: 5000 }
             if (car.status === 'auction') {
                 c.auction = {
                     id: 100, startPrice: car.price, currentBid: car.price + 50000,
                     currentBidderId: 1, endsAt: new Date(Date.now() + 3600 * 1000 * 5).toISOString(),
-                    status: 'active', bids: [{ amount: car.price + 50000, tlfnr: '11223344', created_at: new Date().toISOString() }],
+                    status: 'active',
+                    bids: [{ amount: car.price + 50000, tlfnr: '11223344', created_at: new Date().toISOString() }],
                 }
             }
-            return { ok: true, data: c }
+            return reply(c)
         }
         case 'expressInterest':
-            return { ok: true, data: true }
-        case 'listMyInterests':
-            return { ok: true, data: [] }
-        case 'submitListing': {
-            const id = mockCars.length + 1
-            mockCars.push({ id, ...data, status: 'pending', approved: false,
-                sellerUserId: mockMe?.id, sellerTlfnr: mockMe?.tlfnr,
-                commissionPct: 0, createdAt: new Date().toISOString() })
-            return { ok: true, data: { id } }
+            mockMessages.unshift({ id: Date.now(), type: 'interest', title: 'Interesse registrert', body: data.message || '', link_car_id: data.carId, is_read: 0, created_at: new Date().toISOString() })
+            return reply(true)
+        case 'listMyInterests': return reply([])
+        case 'submitSellRequest': {
+            const id = mockSellRequests.length + 1
+            mockSellRequests.push({ id, ...data, status: 'pending', user_id: mockMe?.id, created_at: new Date().toISOString() })
+            return reply({ id })
         }
-        case 'listMyListings':
-            return { ok: true, data: mockCars.filter((c) => c.sellerUserId === mockMe?.id) }
-        case 'placeBid':
-            return { ok: true, data: true }
-        case 'adminListUsers':
-            return { ok: true, data: mockUsers }
-        case 'adminListInterests':
-            return { ok: true, data: [] }
-        case 'adminListPending':
-            return { ok: true, data: mockCars.filter((c) => !c.approved) }
+        case 'listMySellRequests':
+            return reply(mockSellRequests.filter((r) => r.user_id === mockMe?.id))
+        case 'listOpenSellRequests':
+            return reply(mockSellRequests.filter((r) => r.status === 'pending' || r.status === 'assigned'))
+        case 'claimSellRequest': {
+            const r = mockSellRequests.find((r) => r.id === data.requestId)
+            if (r) { r.status = 'assigned'; r.assigned_seller_id = mockMe?.id; r.assigned_office_id = mockMe?.officeId }
+            return reply(true)
+        }
+        case 'placeBid': return reply(true)
+        case 'completeSale':
+            return reply({ commission: Math.floor(data.salePrice * 0.08), transferFee: 5000 })
+        case 'listMessages': return reply(mockMessages)
+        case 'unreadCount': return reply(mockMessages.filter((m) => !m.is_read).length)
+        case 'markMessageRead': {
+            const m = mockMessages.find((m) => m.id === data.id); if (m) m.is_read = 1
+            return reply(true)
+        }
+        case 'markAllRead': mockMessages.forEach((m) => m.is_read = 1); return reply(true)
+        case 'openThread': {
+            let t = mockThreads.find((t) => t.car_id === data.carId && t.customer_id === mockMe?.id)
+            if (!t) { t = { id: mockThreads.length + 1, car_id: data.carId, customer_id: mockMe?.id, seller_id: 2 }; mockThreads.push(t) }
+            return reply(t)
+        }
+        case 'listMyThreads':
+            return reply(mockThreads.map((t) => {
+                const car = mockCars.find((c) => c.id === t.car_id)
+                const last = mockChatMessages[t.id]?.slice(-1)[0]
+                return { ...t, make: car?.make, model: car?.model, year: car?.year, image: car?.image,
+                    customer_tlfnr: mockUsers.find((u) => u.id === t.customer_id)?.tlfnr,
+                    seller_tlfnr: mockUsers.find((u) => u.id === t.seller_id)?.tlfnr,
+                    last_msg: last?.body, last_at: last?.created_at }
+            }))
+        case 'listThreadMessages': return reply(mockChatMessages[data.threadId] || [])
+        case 'sendThreadMessage': {
+            const id = data.threadId
+            mockChatMessages[id] = mockChatMessages[id] || []
+            mockChatMessages[id].push({ id: Date.now(), sender_id: mockMe?.id, body: data.body, created_at: new Date().toISOString(), tlfnr: mockMe?.tlfnr })
+            return reply(true)
+        }
+        case 'listOffices': return reply(mockOffices)
+        case 'adminListUsers': return reply(mockUsers)
+        case 'adminListInterests': return reply([])
+        case 'adminListPending': return reply([])
+        case 'adminGetSettings': return reply(mockSettings)
+        case 'adminSetSetting': {
+            const s = mockSettings.find((s) => s.key === data.key)
+            if (s) s.value = data.value; else mockSettings.push({ key: data.key, value: data.value })
+            return reply(true)
+        }
+        case 'adminCreateOffice': {
+            const id = mockOffices.length + 1
+            mockOffices.push({ id, name: data.name, logo: data.logo || '', commission_pct: data.commissionPct || 8, created_at: new Date().toISOString(), member_count: 0 })
+            return reply({ id })
+        }
+        case 'adminListOfficeMembers':
+            return reply(mockUsers.filter((u) => u.office_id === data.officeId).map((u) => ({ user_id: u.id, role: u.office_role, tlfnr: u.tlfnr, joined_at: new Date().toISOString() })))
+        case 'adminBroadcast':
+            return reply({ sent: 3 })
+        case 'adminStats':
+            return reply({
+                totalUsers: mockUsers.length, totalCars: mockCars.length,
+                activeListings: mockCars.filter((c) => c.status !== 'sold').length,
+                pendingListings: 0, activeAuctions: 1, totalSales: 12,
+                totalRevenue: 14_500_000, totalCommission: 1_160_000, totalTransferFees: 60_000,
+                topBrands: [
+                    { make: 'Audi', cnt: 4 }, { make: 'BMW', cnt: 3 }, { make: 'Porsche', cnt: 2 }, { make: 'Mercedes', cnt: 2 }, { make: 'Volvo', cnt: 1 },
+                ],
+                topSellers: [
+                    { tlfnr: '11111111', cnt: 8, commission: 720_000 },
+                    { tlfnr: '99887766', cnt: 4, commission: 280_000 },
+                ],
+                officeRevenue: [
+                    { name: 'Vestfold Bil', sales: 8, revenue: 9_000_000, commission: 720_000 },
+                    { name: 'Premium Auto AS', sales: 4, revenue: 5_500_000, commission: 440_000 },
+                ],
+                recentSales: [
+                    { sale_price: 1_450_000, commission_amount: 116_000, sold_at: new Date().toISOString(), make: 'Audi', model: 'RS6 Avant', year: 2022, buyer_tlfnr: '12345678' },
+                    { sale_price: 990_000, commission_amount: 79_200, sold_at: new Date(Date.now() - 86400000).toISOString(), make: 'BMW', model: 'M3', year: 2021, buyer_tlfnr: '87654321' },
+                ],
+            })
         default:
-            return { ok: true, data: null }
+            return reply(null)
     }
 }
 
 export async function api<T = any>(event: string, data: any = {}): Promise<ApiResult<T>> {
     if (devMode) {
-        await new Promise((r) => setTimeout(r, 80))
+        await new Promise((r) => setTimeout(r, 60))
         return mockRespond(event, data) as ApiResult<T>
     }
     try {
         const res = await (window as any).fetchNui('bruktbiler:call', { event, data })
-        if (!res) return { ok: false, error: 'Tom respons fra server' }
+        if (!res) return { ok: false, error: 'Tom respons' }
         return res as ApiResult<T>
     } catch (e: any) {
         return { ok: false, error: e?.message || 'Ukjent feil' }
@@ -109,7 +233,6 @@ export function formatNok(amount: number): string {
     if (typeof amount !== 'number' || !isFinite(amount)) return '-'
     return amount.toLocaleString('no-NO') + ' kr'
 }
-
 export function formatKm(km: number): string {
     if (!km) return '0 km'
     return km.toLocaleString('no-NO') + ' km'

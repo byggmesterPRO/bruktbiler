@@ -1,22 +1,34 @@
 # Bruktbiler — LB Phone App
 
-En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone) som fungerer som en komplett bedrift for kjøp, salg, konsignasjon og auksjon av biler.
+En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone). Komplett bedrift for kjøp, salg, konsignasjon og auksjon av biler — med selger-kontorer, statistikk og full kommunikasjon.
 
 ## Funksjoner
 
-- **Brukere registrerer seg med tlfnr + passord** (passord hashes med SHA-256 + tilfeldig salt)
-- **Forhandler-biler** — admin legger inn biler dealershipet eier
-- **Konsignasjon** — privatpersoner kan levere bilen til forhandler eller selge mens de selv har den
-- **Privat salg** — brukere kan legge ut sine egne biler
-- **Vis interesse** — brukere kan registrere interesse for en bil med en melding
-- **Auksjon** — admin kan legge en bil på auksjon med startpris og varighet; auksjoner avsluttes automatisk
-- **Komplett admin-panel:**
-  - Se / godkjenn / avvis ventende annonser
-  - CRUD på alle biler
-  - Se alle interesser
-  - Start / avslutt auksjoner
-  - Tilbakestille passord til brukere
-  - Gjøre brukere til admin
+### For kunder
+- **Auth med tlfnr + passord** (SHA-256 + salt)
+- **Søk og filter** på merke, modell, pris, årsmodell, km, type, sortering
+- **Vis interesse** — gir push-varsel + innboks-melding til ansvarlig selger
+- **Auksjoner** med live nedtelling, bud-historikk og auto-utvarsling om utbud
+- **Selg bilen din** — send forespørsel om konsignasjon (i butikk eller med visning hos deg). En selger fra et av kontorene tar over og hjelper deg
+- **Direkte chat** med selger på hver bil
+- **Innboks** med push-varsler: ny interesse, overbudt, salg fullført, kunngjøringer
+- **Mine interesser** og **mine forespørsler** — alt på ett sted
+
+### For selgere (ansatt på et kontor)
+- **Salgsforespørsler-kø** — se ledige forespørsler og "ta" en
+- **Promoter forespørsel til annonse** med valgfri provisjon
+- **Fullfør salg** — tlfnr på kjøper + sluttsum → salg registrert med provisjon og overføringsgebyr
+- Chat og innboks som kunder
+
+### For admin
+- **Statistikk-dashbord** — total omsetning, provisjon, salg, omsetning per kontor (med stolpediagram), topp selgere, topp merker, siste salg
+- **Selger-kontorer** — opprett, rediger, sett provisjon. Tildel ansatte til kontor (én per bruker)
+- **Bil-CRUD** — full kontroll over alle biler, status, tildelt kontor og selger
+- **Godkjenning av annonser** — venterekke for innsendte forespørsler
+- **Auksjoner** — start/avslutt
+- **Brukere** — reset passord, gjør til admin
+- **Kunngjøringer** — broadcast til alle / alle selgere / et bestemt kontor / alle med interesser
+- **Innstillinger** — overføringsgebyr (betales av kjøper), default provisjon, min. budøkning
 
 ## Avhengigheter
 
@@ -26,70 +38,63 @@ En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone) so
 
 ## Installasjon
 
-1. Klon eller last ned ressursen til `resources/[bruktbiler]/bruktbiler/` på FiveM-serveren din.
-2. Sørg for at avhengighetene over er startet før denne ressursen.
-3. Kjør UI-build én gang:
+1. Klon ressursen til `resources/[bruktbiler]/bruktbiler/` på FiveM-serveren.
+2. Sørg for at avhengighetene over kjører før denne ressursen.
+3. Bygg UI én gang:
    ```bash
    cd ui
    npm install
    npm run build
    ```
 4. Legg `ensure bruktbiler` i `server.cfg`.
-5. Start serveren. Databasetabellene opprettes automatisk første gang.
+5. Start serveren — alle DB-tabeller opprettes automatisk.
 
 ### Default admin
-
-Første gang ressursen starter opprettes en default admin-bruker:
 
 | Tlfnr | Passord |
 |---|---|
 | `00000000` | `admin` |
 
-**Logg inn og bytt passordet med en gang!** (eller fjern brukeren via admin-panelet etter at du har laget din egen).
+**Bytt passord med en gang!**
 
 ## Utvikling
-
-UI-en bruker Vite + React + TypeScript:
 
 ```bash
 cd ui
 npm run dev
 ```
 
-Endre `fxmanifest.lua` til å peke `ui_page` mot `http://localhost:3000/` for live-reload mens du jobber.
+I dev-modus brukes mock-data og UI-en vises i en simulert phone-frame. Endre `fxmanifest.lua` til `ui_page "http://localhost:3000/"` for live-reload mens du jobber, så bytte tilbake til `ui/dist/index.html` før commit.
 
-```lua
--- ui_page "ui/dist/index.html"
-ui_page "http://localhost:3000/"
-```
+## Datamodell
 
-Husk å bytte tilbake før du committer.
+| Tabell | Beskrivelse |
+|---|---|
+| `bb_users` | brukere (tlfnr, hash, salt, is_admin) |
+| `bb_sessions` | auth-tokens (TTL fra config) |
+| `bb_offices` | selger-kontorer (navn, logo, provisjon) |
+| `bb_office_members` | ansatte tilknyttet kontorer |
+| `bb_cars` | alle biler — status (`available`/`sold`/`auction`/`pending`/`withdrawn`), listing_type (`dealership`/`consignment_in_shop`/`consignment_remote`/`private`), seller_user_id, assigned_office_id, assigned_seller_id |
+| `bb_sell_requests` | forespørsler fra brukere som vil selge |
+| `bb_interests` | interessemeldinger på en bil |
+| `bb_auctions` + `bb_bids` | auksjoner |
+| `bb_sales` | gjennomførte salg (sale_price, transfer_fee, commission_amount, kontor + selger) |
+| `bb_messages` | innboks-meldinger (også speilet via lb-phone push) |
+| `bb_chat_threads` + `bb_chat_messages` | direkte chat kjøper ↔ selger per bil |
+| `bb_settings` | konfigurérbare admin-verdier (gebyr, provisjon, min budøkning) |
 
-## Konfigurasjon
+## Innstillinger som kan endres i appen
 
-Se `config.lua`:
-
-- `Config.SessionTTL` — sesjonens varighet (sekunder)
-- `Config.DefaultAdmin` — default admin-bruker
-- `Config.AuctionTickInterval` — hvor ofte serveren sjekker for utløpte auksjoner
-- `Config.DefaultCommissionPct` — default provisjon på godkjente konsignasjoner
-
-## Database-skjema
-
-Se `server/db.lua`. Tabeller:
-
-- `bb_users` — brukere
-- `bb_sessions` — auth-tokens
-- `bb_cars` — alle biler (status: `available`, `sold`, `auction`, `pending`, `withdrawn`; listing_type: `dealership`, `consignment_in_shop`, `consignment_remote`, `private`)
-- `bb_interests` — interessemeldinger
-- `bb_auctions` — auksjoner
-- `bb_bids` — bud
+- `transfer_fee` — overføringsgebyr i kr (betales av kjøper på toppen av prisen)
+- `default_commission_pct` — default provisjon for nye kontor / godkjenninger
+- `auction_increment_min` — minste tillatte budøkning
+- `enable_p2p_chat` — slå av/på direkte-chat
 
 ## Sikkerhet
 
-Passord hashes med SHA-256 + 16 byte tilfeldig salt. Dette er tilstrekkelig for FiveM-kontekst der serveren er trust-boundary, men ikke "bank-grade". Bytt til argon2/bcrypt via et binært modul dersom du eksponerer tjenesten utenfor spillet.
+Passord hashes med SHA-256 + 16 byte salt. Sesjons-tokens er 32 bytes hex med konfigurerbar TTL (`Config.SessionTTL`, default 7 dager). Alle skrive-callbacks krever gyldig token; admin-callbacks gjør i tillegg `is_admin = 1`-sjekk; selger-callbacks krever medlemskap i et kontor.
 
-Alle skrive-callbacks krever en gyldig session-token. Admin-callbacks gjør i tillegg `is_admin = 1`-sjekk.
+For produksjon utenfor FiveM bør hashing byttes til argon2/bcrypt.
 
 ## Lisens
 

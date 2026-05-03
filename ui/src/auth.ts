@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from './api'
 
-export type Me = { id: number; tlfnr: string; isAdmin: boolean } | null
+export type Me = { id: number; tlfnr: string; isAdmin: boolean; isSeller: boolean; officeId: number | null } | null
 
 const TOKEN_KEY = 'bb_token'
 
@@ -43,7 +43,7 @@ export function useAuth() {
         )
         if (res.ok) {
             setToken(res.data.token)
-            setMe({ id: 0, tlfnr: res.data.tlfnr, isAdmin: res.data.isAdmin })
+            setMe({ id: 0, tlfnr: res.data.tlfnr, isAdmin: res.data.isAdmin, isSeller: (res.data as any).isSeller || false, officeId: null })
             await refresh()
         }
         return res
@@ -55,7 +55,7 @@ export function useAuth() {
         )
         if (res.ok) {
             setToken(res.data.token)
-            setMe({ id: 0, tlfnr: res.data.tlfnr, isAdmin: res.data.isAdmin })
+            setMe({ id: 0, tlfnr: res.data.tlfnr, isAdmin: res.data.isAdmin, isSeller: (res.data as any).isSeller || false, officeId: null })
             await refresh()
         }
         return res

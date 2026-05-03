@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken } from '../auth'
+import Stats from './Stats'
+import Offices from './Offices'
+import Settings from './Settings'
+import Broadcast from './Broadcast'
 
-type Tab = 'users' | 'cars' | 'pending' | 'interests' | 'auctions'
+type Tab = 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'broadcast' | 'settings'
 
-type User = { id: number; tlfnr: string; is_admin: number; created_at: string }
+type User = { id: number; tlfnr: string; is_admin: number; created_at: string; office_id: number | null; office_name: string | null }
 type Car = {
     id: number; make: string; model: string; year: number; price: number;
     mileage: number; image: string; description: string; status: string;
@@ -16,28 +20,34 @@ type Interest = {
 }
 
 export default function Admin() {
-    const [tab, setTab] = useState<Tab>('cars')
+    const [tab, setTab] = useState<Tab>('stats')
 
     return (
         <div>
             <h2 className="section-title" style={{ marginTop: 0 }}>Admin-panel</h2>
             <div className="tabs">
+                <button className={tab === 'stats' ? 'active' : ''} onClick={() => setTab('stats')}>Statistikk</button>
                 <button className={tab === 'cars' ? 'active' : ''} onClick={() => setTab('cars')}>Biler</button>
                 <button className={tab === 'pending' ? 'active' : ''} onClick={() => setTab('pending')}>Venter</button>
                 <button className={tab === 'auctions' ? 'active' : ''} onClick={() => setTab('auctions')}>Auksjoner</button>
                 <button className={tab === 'interests' ? 'active' : ''} onClick={() => setTab('interests')}>Interesser</button>
                 <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Brukere</button>
+                <button className={tab === 'offices' ? 'active' : ''} onClick={() => setTab('offices')}>Kontor</button>
+                <button className={tab === 'broadcast' ? 'active' : ''} onClick={() => setTab('broadcast')}>Kunngjor</button>
+                <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Innst.</button>
             </div>
+            {tab === 'stats' && <Stats />}
             {tab === 'cars' && <AdminCars />}
             {tab === 'pending' && <AdminPending />}
             {tab === 'auctions' && <AdminAuctions />}
             {tab === 'interests' && <AdminInterests />}
             {tab === 'users' && <AdminUsers />}
+            {tab === 'offices' && <Offices />}
+            {tab === 'broadcast' && <Broadcast />}
+            {tab === 'settings' && <Settings />}
         </div>
     )
 }
-
-// ================= USERS =================
 
 function AdminUsers() {
     const [users, setUsers] = useState<User[]>([])
@@ -74,7 +84,10 @@ function AdminUsers() {
                 <div key={u.id} className="card list-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <div style={{ fontWeight: 500 }}>{u.tlfnr} {u.is_admin === 1 && <span className="tag" style={{ marginLeft: 6 }}>Admin</span>}</div>
+                            <div style={{ fontWeight: 500 }}>{u.tlfnr}
+                                {u.is_admin === 1 && <span className="tag" style={{ marginLeft: 6 }}>Admin</span>}
+                                {u.office_name && <span className="tag tag-blue" style={{ marginLeft: 6 }}>{u.office_name}</span>}
+                            </div>
                             <div className="meta">Opprettet {new Date(u.created_at).toLocaleDateString('no-NO')}</div>
                         </div>
                         <button className="btn btn-ghost" style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
@@ -99,8 +112,6 @@ function AdminUsers() {
         </div>
     )
 }
-
-// ================= CARS =================
 
 function AdminCars() {
     const [cars, setCars] = useState<Car[]>([])
@@ -177,8 +188,6 @@ function AdminCars() {
     )
 }
 
-// ================= PENDING =================
-
 function AdminPending() {
     const [items, setItems] = useState<Car[]>([])
     const [commission, setCommission] = useState('8')
@@ -228,8 +237,6 @@ function AdminPending() {
     )
 }
 
-// ================= AUCTIONS =================
-
 function AdminAuctions() {
     const [cars, setCars] = useState<Car[]>([])
     const [carId, setCarId] = useState('')
@@ -252,11 +259,6 @@ function AdminAuctions() {
         if (res.ok) { setMsg('Auksjon startet'); await load() }
         else setMsg(res.error)
         setTimeout(() => setMsg(null), 2000)
-    }
-    const end = async (id: number) => {
-        const res = await api('adminEndAuction', { token: getToken(), auctionId: id })
-        if (res.ok) { setMsg('Auksjon avsluttet'); await load() }
-        setTimeout(() => setMsg(null), 1500)
     }
 
     const auctionCars = cars.filter((c) => c.status === 'auction')
@@ -288,15 +290,11 @@ function AdminAuctions() {
                         <div style={{ fontWeight: 500 }}>{c.make} {c.model}</div>
                         <div className="meta">{formatNok(c.price)}</div>
                     </div>
-                    <button className="btn btn-danger" onClick={() => end((c as any).auctionId || c.id)}
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}>Avslutt</button>
                 </div>
             ))}
         </div>
     )
 }
-
-// ================= INTERESTS =================
 
 function AdminInterests() {
     const [items, setItems] = useState<Interest[]>([])

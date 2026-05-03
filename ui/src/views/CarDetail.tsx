@@ -7,6 +7,8 @@ type Car = {
     id: number; make: string; model: string; year: number; price: number;
     mileage: number; image: string; description: string; status: string;
     listingType: string; sellerTlfnr?: string | null;
+    transferFee?: number;
+    assignedOfficeName?: string | null; assignedSellerTlfnr?: string | null;
     auction?: {
         id: number; startPrice: number; currentBid: number;
         currentBidderId: number | null; endsAt: string; status: string;
@@ -150,7 +152,17 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
             <p className="description">{car.description || 'Ingen beskrivelse.'}</p>
 
             <div style={{ height: 20 }} />
-            <button className="btn btn-block" onClick={() => setShowInterest(true)}>Vis interesse</button>
+            <button className="btn btn-gold btn-block" onClick={() => setShowInterest(true)}>Vis interesse</button>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={async () => {
+                await api('openThread', { token: getToken(), carId: car.id })
+                setSuccess('Samtale apnet — gå til Mine → Samtaler')
+                setTimeout(() => setSuccess(null), 2500)
+            }}>Chat med selger</button>
+            {car.transferFee && car.transferFee > 0 && (
+                <p className="muted" style={{ fontSize: '0.72rem', textAlign: 'center', marginTop: 8 }}>
+                    Overforingsgebyr: {formatNok(car.transferFee)} (betales av kjoper)
+                </p>
+            )}
 
             {success && <div className="success-banner">{success}</div>}
             {error && <div className="error-banner">{error}</div>}

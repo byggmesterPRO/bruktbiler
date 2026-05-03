@@ -6,27 +6,31 @@ const TYPE_OPTIONS = [
     {
         value: 'consignment_in_shop',
         label: 'Konsignasjon hos forhandler',
-        desc: 'Vi tar bilen inn og selger den. Vi tar provisjon ved salg.',
+        desc: 'Vi tar bilen inn pa forhandlertomten og selger den. Provisjon ved salg.',
     },
     {
         value: 'consignment_remote',
         label: 'Privat med visning hos deg',
-        desc: 'Vi annonserer bilen, du har den selv og holder visning.',
-    },
-    {
-        value: 'private',
-        label: 'Privat salg',
-        desc: 'Du legger ut bilen som privatperson, uten forhandler.',
+        desc: 'Vi annonserer bilen, du har den selv og holder visning. Provisjon ved salg.',
     },
 ] as const
 
-type MyCar = {
-    id: number; make: string; model: string; year: number; price: number;
-    status: string; approved: boolean; listingType: string;
+type SellReq = {
+    id: number; make: string; model: string; year: number; expected_price: number;
+    status: string; listing_type: string; created_at: string;
+    office_name?: string | null; seller_tlfnr?: string | null;
+}
+
+const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+    pending:  { label: 'Venter pa selger', cls: 'tag-grey' },
+    assigned: { label: 'Selger tildelt',   cls: 'tag-blue' },
+    listed:   { label: 'Lagt ut',          cls: 'tag-green' },
+    closed:   { label: 'Ferdig',           cls: 'tag' },
+    rejected: { label: 'Avvist',           cls: 'tag-red' },
 }
 
 export default function SellCar() {
-    const [view, setView] = useState<'choose' | 'form' | 'mine'>('mine')
+    const [view, setView] = useState<'mine' | 'choose' | 'form'>('mine')
     const [type, setType] = useState<string | null>(null)
     const [make, setMake] = useState('')
     const [model, setModel] = useState('')
@@ -37,10 +41,10 @@ export default function SellCar() {
     const [description, setDescription] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
-    const [mine, setMine] = useState<MyCar[]>([])
+    const [mine, setMine] = useState<SellReq[]>([])
 
     const loadMine = () =>
-        api<MyCar[]>('listMyListings', { token: getToken() }).then((res) => {
+        api<SellReq[]>('listMySellRequests', { token: getToken() }).then((res) => {
             if (res.ok) setMine(res.data)
         })
 
@@ -51,13 +55,13 @@ export default function SellCar() {
         if (!make || !model || !year || !price) {
             setError('Fyll inn alle felt'); return
         }
-        const res = await api('submitListing', {
+        const res = await api('submitSellRequest', {
             token: getToken(), listingType: type, make, model,
-            year: parseInt(year, 10), price: parseInt(price, 10),
+            year: parseInt(year, 10), expectedPrice: parseInt(price, 10),
             mileage: parseInt(mileage || '0', 10), image, description,
         })
         if (res.ok) {
-            setSuccess('Annonse sendt! Den vises etter godkjenning.')
+            setSuccess('Forespørsel sendt! En selger vil kontakte deg.')
             setMake(''); setModel(''); setYear(''); setPrice(''); setMileage(''); setImage(''); setDescription('')
             await loadMine()
             setTimeout(() => { setSuccess(null); setView('mine') }, 1500)
@@ -69,6 +73,9 @@ export default function SellCar() {
             <div>
                 <button className="btn btn-ghost" onClick={() => setView('mine')} style={{ padding: '0.4rem 0.7rem', marginBottom: '0.6rem' }}>← Tilbake</button>
                 <h2 className="section-title" style={{ marginTop: 0 }}>Hvordan vil du selge?</h2>
+                <p className="muted" style={{ fontSize: '0.78rem', marginTop: 0 }}>
+                    Begge alternativer involverer en selger fra et av vare kontorer som handterer kontakten med interesserte.
+                </p>
                 <div className="col">
                     {TYPE_OPTIONS.map((o) => (
                         <div key={o.value} className="card" style={{ padding: '0.9rem', cursor: 'pointer' }}
@@ -87,7 +94,7 @@ export default function SellCar() {
         return (
             <div>
                 <button className="btn btn-ghost" onClick={() => setView('choose')} style={{ padding: '0.4rem 0.7rem', marginBottom: '0.6rem' }}>← Tilbake</button>
-                <h2 className="section-title" style={{ marginTop: 0 }}>Ny annonse</h2>
+                <h2 className="section-title" style={{ marginTop: 0 }}>Ny forespørsel</h2>
                 <p className="muted" style={{ fontSize: '0.78rem' }}>{opt?.label}</p>
 
                 <label className="label">Merke</label>
@@ -104,7 +111,7 @@ export default function SellCar() {
                         <input className="input" inputMode="numeric" value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="50000" />
                     </div>
                 </div>
-                <label className="label">Pris (kr)</label>
+                <label className="label">Onsket pris (kr)</label>
                 <input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
                 <label className="label">Bilde-URL</label>
                 <input className="input" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." />
@@ -115,7 +122,7 @@ export default function SellCar() {
                 {success && <div className="success-banner">{success}</div>}
 
                 <div style={{ height: 12 }} />
-                <button className="btn btn-gold btn-block" onClick={submit}>Send inn for godkjenning</button>
+                <button className="btn btn-gold btn-block" onClick={submit}>Send forespørsel</button>
             </div>
         )
     }
@@ -123,24 +130,27 @@ export default function SellCar() {
     return (
         <div>
             <button className="btn btn-gold btn-block" onClick={() => setView('choose')}>+ Selg en bil</button>
-            <div style={{ height: 14 }} />
-            <h2 className="section-title" style={{ marginTop: 0 }}>Mine annonser</h2>
-            {mine.length === 0 && <div className="empty">Du har ingen annonser enda.</div>}
-            {mine.map((c) => (
-                <div key={c.id} className="card list-row" style={{ marginBottom: '0.4rem' }}>
-                    <div>
-                        <div style={{ fontWeight: 500 }}>{c.make} {c.model} ({c.year})</div>
-                        <div className="meta">{formatNok(c.price)}</div>
+            <p className="muted" style={{ fontSize: '0.78rem', marginTop: '0.7rem' }}>
+                Send en forespørsel sa kontakter en av vare selgere deg.
+            </p>
+            <h2 className="section-title">Mine forespørsler</h2>
+            {mine.length === 0 && <div className="empty">Du har ikke sendt noen forespørsler enda.</div>}
+            {mine.map((r) => {
+                const s = STATUS_LABEL[r.status] || { label: r.status, cls: 'tag-grey' }
+                return (
+                    <div key={r.id} className="card" style={{ padding: '0.7rem 0.8rem', marginBottom: '0.5rem' }}>
+                        <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ fontWeight: 500 }}>{r.make} {r.model} ({r.year})</div>
+                            <span className={'tag ' + s.cls}>{s.label}</span>
+                        </div>
+                        <div className="muted" style={{ fontSize: '0.74rem', marginTop: '0.2rem' }}>
+                            Onsket pris: {formatNok(r.expected_price)}
+                            {r.seller_tlfnr && <> · Selger: {r.seller_tlfnr}</>}
+                            {r.office_name && <> · {r.office_name}</>}
+                        </div>
                     </div>
-                    <div>
-                        {c.status === 'pending' && <span className="tag tag-grey">Venter</span>}
-                        {c.status === 'available' && <span className="tag tag-green">Aktiv</span>}
-                        {c.status === 'sold' && <span className="tag">Solgt</span>}
-                        {c.status === 'auction' && <span className="tag tag-blue">Auksjon</span>}
-                        {c.status === 'withdrawn' && <span className="tag tag-red">Trukket</span>}
-                    </div>
-                </div>
-            ))}
+                )
+            })}
         </div>
     )
 }
