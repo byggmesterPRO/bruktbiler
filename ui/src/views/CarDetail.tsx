@@ -202,7 +202,7 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
                                 { title: 'Ring', color: 'blue', cb: () => startCall(car.assignedSellerTlfnr!) },
                             ],
                         })
-                    }}>Ring</button>
+                    }}>Ring selger</button>
                 )}
                 <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => shareCar(car)}>Del</button>
             </div>

@@ -1018,7 +1018,7 @@ end)
 -- F.eks. for a "ringe sammen" en kunde og selger.
 lib.callback.register("bruktbiler:placeCallFromUser", function(_, payload)
     payload = payload or {}
-    local user, e = BB_RequireSeller(payload.token)
+    local user, e = BB_RequireAdmin(payload.token)
     if not user then return err(e) end
     local fromUserId = tonumber(payload.fromUserId)
     local toTlfnr = tostring(payload.toTlfnr or "")
