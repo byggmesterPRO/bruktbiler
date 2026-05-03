@@ -1,0 +1,23 @@
+{
+    "name": "bruktbiler-ui",
+    "version": "1.0.0",
+    "private": true,
+    "homepage": "./",
+    "dependencies": {
+        "@vitejs/plugin-react": "^3.1.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "vite": "^4.2.1"
+    },
+    "scripts": {
+        "start": "vite",
+        "dev": "vite dev",
+        "build": "vite build",
+        "serve": "vite preview"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "typescript": "^5.0.0"
+    }
+}
