@@ -6,8 +6,10 @@ import Stats from './Stats'
 import Offices from './Offices'
 import Settings from './Settings'
 import Broadcast from './Broadcast'
+import AuditLog from './AuditLog'
+import OfficeGoals from './OfficeGoals'
 
-type Tab = 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'broadcast' | 'settings'
+type Tab = 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'goals' | 'broadcast' | 'audit' | 'settings'
 
 type User = {
     id: number; tlfnr: string; name: string; is_admin: number; created_at: string;
@@ -38,7 +40,9 @@ export default function Admin() {
                 <button className={tab === 'interests' ? 'active' : ''} onClick={() => setTab('interests')}>Interesser</button>
                 <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Brukere</button>
                 <button className={tab === 'offices' ? 'active' : ''} onClick={() => setTab('offices')}>Kontor</button>
+                <button className={tab === 'goals' ? 'active' : ''} onClick={() => setTab('goals')}>Mal/lonn</button>
                 <button className={tab === 'broadcast' ? 'active' : ''} onClick={() => setTab('broadcast')}>Kunngjor</button>
+                <button className={tab === 'audit' ? 'active' : ''} onClick={() => setTab('audit')}>Logg</button>
                 <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Innst.</button>
             </div>
             {tab === 'stats' && <Stats />}
@@ -48,7 +52,9 @@ export default function Admin() {
             {tab === 'interests' && <AdminInterests />}
             {tab === 'users' && <AdminUsers />}
             {tab === 'offices' && <Offices />}
+            {tab === 'goals' && <OfficeGoals />}
             {tab === 'broadcast' && <Broadcast />}
+            {tab === 'audit' && <AuditLog />}
             {tab === 'settings' && <Settings />}
         </div>
     )

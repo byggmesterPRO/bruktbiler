@@ -88,6 +88,62 @@ function mockRespond(event: string, data: any): ApiResult<any> {
             return reply(true)
         case 'checkOnline':
             return reply((data.userIds || []).map((id: number) => ({ id, online: mockUsers.find((u) => u.id === id)?.online === true })))
+        case 'toggleWishlist': return reply({ saved: true })
+        case 'isWishlisted': return reply({ saved: false })
+        case 'listWishlist': return reply([mockCars[0]])
+        case 'createOffer': return reply({ id: Date.now() })
+        case 'respondToOffer': return reply(true)
+        case 'listOffersForCar': return reply([
+            { id: 1, car_id: data.carId, buyer_id: 99, seller_id: 2, amount: 1400000, message: 'Tilbyr 1.4M', status: 'pending', created_at: new Date().toISOString(), buyer_tlfnr: '99887766', buyer_name: 'Mock Kjoper' },
+        ])
+        case 'listMyOffers': return reply([])
+        case 'createPriceAlert': return reply({ id: Date.now() })
+        case 'listPriceAlerts': return reply([
+            { id: 1, make: 'Audi', model: 'RS6', max_price: 1500000, min_year: 2020, max_km: 50000, active: 1, created_at: new Date().toISOString() },
+        ])
+        case 'deletePriceAlert': return reply(true)
+        case 'listCarImages': return reply([])
+        case 'addCarImage': return reply({ id: Date.now() })
+        case 'removeCarImage': return reply(true)
+        case 'estimateValue': {
+            const base = 1_200_000
+            return reply({
+                sampleSize: 8, listingSampleSize: 3,
+                avgSoldPrice: base, avgListingPrice: base + 80_000,
+                suggestedSellPrice: base, suggestedBuyPrice: Math.floor(base * 0.85),
+                recentSales: [
+                    { sale_price: base, year: 2020, mileage: 30000 },
+                    { sale_price: base + 50_000, year: 2021, mileage: 25000 },
+                ],
+            })
+        }
+        case 'adminAuditLog': return reply([
+            { id: 3, actor_tlfnr: '00000000', action: 'approve_listing', target_type: 'car', target_id: 5, details: '{"commissionPct":8}', created_at: new Date().toISOString() },
+            { id: 2, actor_tlfnr: '11111111', action: 'complete_sale', target_type: 'car', target_id: 1, details: '{"price":1450000}', created_at: new Date(Date.now() - 3600 * 1000).toISOString() },
+            { id: 1, actor_tlfnr: '00000000', action: 'create_office', target_type: 'office', target_id: 1, details: null, created_at: new Date(Date.now() - 86400 * 1000).toISOString() },
+        ])
+        case 'getOfficeGoal': return reply({
+            officeId: data.officeId || 1, period: data.period || new Date().toISOString().slice(0, 7),
+            officeName: 'Vestfold Bil',
+            revenueTarget: 10_000_000, salesTarget: 10, notes: '',
+            actualRevenue: 6_500_000, actualSales: 6, actualCommission: 520_000,
+            floorPct: 10, floorAmount: 52_000, bonusPool: 468_000,
+        })
+        case 'setOfficeGoal': return reply(true)
+        case 'myEarnings': return reply({
+            period: new Date().toISOString().slice(0, 7),
+            sales: 4, revenue: 5_200_000, commission: 416_000, outstanding: 50_000,
+            payouts: [
+                { id: 1, period: '2026-04', amount: 80_000, note: 'April-bonus', paid: 1, paid_at: '2026-05-01', created_at: '2026-04-30' },
+                { id: 2, period: '2026-05', amount: 50_000, note: 'Mai-forskudd', paid: 0, paid_at: null, created_at: new Date().toISOString() },
+            ],
+        })
+        case 'officeEarnings': return reply([
+            { id: 2, name: 'Lars Selger', tlfnr: '11111111', role: 'manager', commission: 416_000, sales: 4, revenue: 5_200_000, outstanding: 50_000 },
+            { id: 5, name: 'Anna Bil', tlfnr: '44444444', role: 'seller', commission: 230_000, sales: 2, revenue: 3_100_000, outstanding: 0 },
+        ])
+        case 'createPayout': return reply({ id: Date.now() })
+        case 'markPayoutPaid': return reply(true)
         case 'me':
             return mockMe ? reply(mockMe) : fail('Ikke innlogget')
         case 'logout':

@@ -11,6 +11,11 @@ import SellerWork from './views/SellerWork'
 import Admin from './views/Admin'
 import Inbox from './views/Inbox'
 import Chat from './views/Chat'
+import Wishlist from './views/Wishlist'
+import PriceAlerts from './views/PriceAlerts'
+import MyOffers from './views/MyOffers'
+import Earnings from './views/Earnings'
+import ValueEstimate from './views/ValueEstimate'
 import Frame from './components/Frame'
 import {
     IconCar, IconHandshake, IconStar, IconChat, IconBell, IconSettings, IconLogout,
@@ -24,7 +29,7 @@ function Shell() {
     const { me, loading, login, register, logout } = useAuth()
     const [view, setView] = useState<View>('cars')
     const [carId, setCarId] = useState<number | null>(null)
-    const [mineTab, setMineTab] = useState<'interests' | 'threads'>('interests')
+    const [mineTab, setMineTab] = useState<'wishlist' | 'offers' | 'interests' | 'threads' | 'alerts' | 'earnings'>('wishlist')
     const [unread, setUnread] = useState(0)
 
     useEffect(() => {
@@ -77,11 +82,21 @@ function Shell() {
                 {view === 'mine' && (
                     <div>
                         <div className="tabs">
+                            <button className={mineTab === 'wishlist' ? 'active' : ''} onClick={() => setMineTab('wishlist')}>Onskeliste</button>
+                            <button className={mineTab === 'offers' ? 'active' : ''} onClick={() => setMineTab('offers')}>Tilbud</button>
                             <button className={mineTab === 'interests' ? 'active' : ''} onClick={() => setMineTab('interests')}>Interesser</button>
                             <button className={mineTab === 'threads' ? 'active' : ''} onClick={() => setMineTab('threads')}>Samtaler</button>
+                            <button className={mineTab === 'alerts' ? 'active' : ''} onClick={() => setMineTab('alerts')}>Varsler</button>
+                            {(me.isSeller || me.isAdmin) && (
+                                <button className={mineTab === 'earnings' ? 'active' : ''} onClick={() => setMineTab('earnings')}>Provisjon</button>
+                            )}
                         </div>
+                        {mineTab === 'wishlist' && <Wishlist onOpen={openCar} />}
+                        {mineTab === 'offers' && <MyOffers onOpen={openCar} />}
                         {mineTab === 'interests' && <MyInterests onOpen={openCar} />}
                         {mineTab === 'threads' && <Chat />}
+                        {mineTab === 'alerts' && <PriceAlerts />}
+                        {mineTab === 'earnings' && <Earnings />}
                     </div>
                 )}
                 {view === 'inbox' && <Inbox onOpenCar={openCar} />}

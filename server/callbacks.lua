@@ -198,6 +198,13 @@ lib.callback.register("bruktbiler:getCar", function(_, payload)
         end
     end
     car.transferFee = BB_GetSettingInt("transfer_fee", 0)
+    car.images = MySQL.query.await(
+        "SELECT id, url FROM bb_car_images WHERE car_id = ? ORDER BY ordering ASC, id ASC",
+        { car.id }
+    ) or {}
+    car.wishlisted = MySQL.scalar.await(
+        "SELECT 1 FROM bb_wishlist WHERE user_id = ? AND car_id = ?", { user.id, car.id }
+    ) ~= nil
     return ok(car)
 end)
 
@@ -375,6 +382,8 @@ lib.callback.register("bruktbiler:promoteSellRequestToListing", function(_, payl
         "Bilen din er lagt ut",
         ("Bilen %s %s ligger na ute for salg"):format(req.make, req.model), carId
     )
+    BB_Audit(user, "promote_listing", "car", carId, { fromRequest = id })
+    pcall(function() BB_TriggerPriceAlerts(carId) end)
     return ok({ carId = carId })
 end)
 
@@ -527,6 +536,8 @@ lib.callback.register("bruktbiler:completeSale", function(_, payload)
             ("%s %s solgt for %d kr"):format(car.make, car.model, salePrice),
             carId)
     end
+    BB_Audit(user, "complete_sale", "car", carId,
+        { buyer = buyer.id, price = salePrice, commission = commissionAmount })
     return ok({ commission = commissionAmount, transferFee = transferFee })
 end)
 
@@ -749,6 +760,8 @@ lib.callback.register("bruktbiler:adminCreateCar", function(_, payload)
         tonumber(payload.mileage) or 0, payload.image or "", payload.description or "",
         payload.officeId,
     })
+    BB_Audit(user, "create_car", "car", id, { make = payload.make, model = payload.model })
+    pcall(function() BB_TriggerPriceAlerts(id) end)
     return ok({ id = id })
 end)
 
@@ -822,6 +835,7 @@ lib.callback.register("bruktbiler:adminCreateAuction", function(_, payload)
         "Bil pa auksjon!",
         "En bil du har vist interesse for er na pa auksjon."
     )
+    BB_Audit(user, "create_auction", "car", carId, { startPrice = startPrice, hours = hours })
     return ok({ id = id })
 end)
 
@@ -861,6 +875,8 @@ lib.callback.register("bruktbiler:adminApproveListing", function(_, payload)
         BB_Notify(seller, "approved", "Annonsen er godkjent",
             "Bilen din er publisert.", id)
     end
+    BB_Audit(user, "approve_listing", "car", id, { commissionPct = commission })
+    pcall(function() BB_TriggerPriceAlerts(id) end)
     return ok(true)
 end)
 
@@ -876,6 +892,7 @@ lib.callback.register("bruktbiler:adminRejectListing", function(_, payload)
         BB_Notify(seller, "rejected", "Annonsen er avvist",
             "Annonsen din ble avvist av admin.", nil)
     end
+    BB_Audit(user, "reject_listing", "car", id)
     return ok(true)
 end)
 

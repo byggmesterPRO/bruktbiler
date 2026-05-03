@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken, useAuth } from '../auth'
 import { contactSelector, formatPhoneNumber } from '../lbphone'
+import ValueEstimate from './ValueEstimate'
 
 type SellReq = {
     id: number; user_id: number; owner_tlfnr: string; make: string; model: string; year: number;
@@ -14,6 +15,7 @@ type MyCar = {
 
 export default function SellerWork() {
     const { me } = useAuth()
+    const [tab, setTab] = useState<'work' | 'estimate'>('work')
     const [items, setItems] = useState<SellReq[]>([])
     const [active, setActive] = useState<SellReq | null>(null)
     const [commission, setCommission] = useState('8')
@@ -83,8 +85,24 @@ export default function SellerWork() {
         )
     }
 
+    if (tab === 'estimate') {
+        return (
+            <div>
+                <div className="tabs">
+                    <button className={tab === 'work' ? 'active' : ''} onClick={() => setTab('work')}>Arbeid</button>
+                    <button className={tab === 'estimate' ? 'active' : ''} onClick={() => setTab('estimate')}>Verdianslag</button>
+                </div>
+                <ValueEstimate />
+            </div>
+        )
+    }
+
     return (
         <div>
+            <div className="tabs">
+                <button className={'active'} onClick={() => setTab('work')}>Arbeid</button>
+                <button className={''} onClick={() => setTab('estimate')}>Verdianslag</button>
+            </div>
             <h2 className="section-title" style={{ marginTop: 0 }}>Selger-arbeidsflate</h2>
             <p className="muted" style={{ fontSize: '0.78rem', marginTop: 0 }}>
                 Innkomne salgsforespørsler {me?.officeId ? '· du er pa kontor #' + me.officeId : ''}

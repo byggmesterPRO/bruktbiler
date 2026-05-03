@@ -176,6 +176,105 @@ local SCHEMA = {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
     [[
+    CREATE TABLE IF NOT EXISTS bb_offers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        car_id INT NOT NULL,
+        buyer_id INT NOT NULL,
+        seller_id INT NULL,
+        amount INT NOT NULL,
+        message TEXT,
+        status ENUM('pending','accepted','rejected','countered','expired') NOT NULL DEFAULT 'pending',
+        parent_offer_id INT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE,
+        FOREIGN KEY (buyer_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        FOREIGN KEY (seller_id) REFERENCES bb_users(id) ON DELETE SET NULL,
+        FOREIGN KEY (parent_offer_id) REFERENCES bb_offers(id) ON DELETE SET NULL,
+        INDEX idx_offers_car (car_id),
+        INDEX idx_offers_buyer (buyer_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_wishlist (
+        user_id INT NOT NULL,
+        car_id INT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, car_id),
+        FOREIGN KEY (user_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_price_alerts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        make VARCHAR(64) NULL,
+        model VARCHAR(64) NULL,
+        max_price INT NULL,
+        min_year INT NULL,
+        max_km INT NULL,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        INDEX idx_alerts_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_car_images (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        car_id INT NOT NULL,
+        url TEXT NOT NULL,
+        ordering INT NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (car_id) REFERENCES bb_cars(id) ON DELETE CASCADE,
+        INDEX idx_imgs_car (car_id, ordering)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_audit_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        actor_id INT NULL,
+        actor_tlfnr VARCHAR(32) NULL,
+        action VARCHAR(64) NOT NULL,
+        target_type VARCHAR(32) NULL,
+        target_id INT NULL,
+        details TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_audit_action (action, created_at),
+        INDEX idx_audit_actor (actor_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_office_goals (
+        office_id INT NOT NULL,
+        period CHAR(7) NOT NULL,
+        revenue_target INT NOT NULL DEFAULT 0,
+        sales_target INT NOT NULL DEFAULT 0,
+        notes TEXT,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (office_id, period),
+        FOREIGN KEY (office_id) REFERENCES bb_offices(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
+    CREATE TABLE IF NOT EXISTS bb_payouts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        office_id INT NOT NULL,
+        user_id INT NOT NULL,
+        period CHAR(7) NOT NULL,
+        amount INT NOT NULL,
+        note VARCHAR(255),
+        paid TINYINT(1) NOT NULL DEFAULT 0,
+        paid_at DATETIME NULL,
+        paid_by_user_id INT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_by_user_id INT NULL,
+        FOREIGN KEY (office_id) REFERENCES bb_offices(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES bb_users(id) ON DELETE CASCADE,
+        INDEX idx_payouts_user (user_id, period)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
     CREATE TABLE IF NOT EXISTS bb_sessions (
         token VARCHAR(64) PRIMARY KEY,
         user_id INT NOT NULL,
@@ -210,6 +309,8 @@ function BB_InstallSchema()
     ensureCol("bb_cars", "assigned_seller_id", "INT NULL")
     ensureCol("bb_users", "name", "VARCHAR(80) NULL")
     ensureCol("bb_users", "license", "VARCHAR(80) NULL")
+    -- Floor-pct: andel av provisjon som gar "opp" til selskapet (resten = bonus-pool)
+    ensureCol("bb_offices", "floor_pct", "INT NOT NULL DEFAULT 10")
     -- Index for fast online-lookup
     local idx = MySQL.scalar.await([[
         SELECT COUNT(*) FROM information_schema.STATISTICS
