@@ -114,7 +114,7 @@ end
 function BB_ResolveSession(token)
     if not token or token == "" then return nil end
     local row = MySQL.single.await([[
-        SELECT u.id, u.tlfnr, u.is_admin
+        SELECT u.id, u.tlfnr, u.name, u.license, u.is_admin
         FROM bb_sessions s JOIN bb_users u ON u.id = s.user_id
         WHERE s.token = ? AND s.expires_at > NOW()
         LIMIT 1

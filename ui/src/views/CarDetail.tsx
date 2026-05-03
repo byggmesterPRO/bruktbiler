@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, formatNok, formatKm } from '../api'
 import { getToken } from '../auth'
+import { popUp, startCall, shareCar, formatPhoneNumber } from '../lbphone'
 
 type Bid = { amount: number; tlfnr: string; created_at: string }
 type Car = {
@@ -115,8 +116,17 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
                 <div className="spec"><div className="spec-label">Arsmodell</div><div className="spec-value">{car.year}</div></div>
                 <div className="spec"><div className="spec-label">Km</div><div className="spec-value">{formatKm(car.mileage)}</div></div>
                 <div className="spec"><div className="spec-label">Type</div><div className="spec-value">{TYPE_LABEL[car.listingType]}</div></div>
-                {car.sellerTlfnr && (
-                    <div className="spec"><div className="spec-label">Selger</div><div className="spec-value">{car.sellerTlfnr}</div></div>
+                {car.assignedSellerTlfnr && (
+                    <div className="spec">
+                        <div className="spec-label">Ansvarlig selger</div>
+                        <div className="spec-value">{formatPhoneNumber(car.assignedSellerTlfnr)}</div>
+                    </div>
+                )}
+                {car.sellerTlfnr && !car.assignedSellerTlfnr && (
+                    <div className="spec">
+                        <div className="spec-label">Eier</div>
+                        <div className="spec-value">{formatPhoneNumber(car.sellerTlfnr)}</div>
+                    </div>
                 )}
             </div>
 
@@ -153,11 +163,26 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
 
             <div style={{ height: 20 }} />
             <button className="btn btn-gold btn-block" onClick={() => setShowInterest(true)}>Vis interesse</button>
-            <button className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={async () => {
-                await api('openThread', { token: getToken(), carId: car.id })
-                setSuccess('Samtale apnet — gå til Mine → Samtaler')
-                setTimeout(() => setSuccess(null), 2500)
-            }}>Chat med selger</button>
+            <div className="row" style={{ gap: '0.4rem', marginTop: 8 }}>
+                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={async () => {
+                    await api('openThread', { token: getToken(), carId: car.id })
+                    setSuccess('Samtale apnet — ga til Mine → Samtaler')
+                    setTimeout(() => setSuccess(null), 2500)
+                }}>Chat</button>
+                {car.assignedSellerTlfnr && (
+                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => {
+                        popUp({
+                            title: 'Ring selger',
+                            description: `${formatPhoneNumber(car.assignedSellerTlfnr!)}`,
+                            buttons: [
+                                { title: 'Avbryt', color: 'red' },
+                                { title: 'Ring', color: 'blue', cb: () => startCall(car.assignedSellerTlfnr!) },
+                            ],
+                        })
+                    }}>Ring</button>
+                )}
+                <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => shareCar(car)}>Del</button>
+            </div>
             {car.transferFee && car.transferFee > 0 && (
                 <p className="muted" style={{ fontSize: '0.72rem', textAlign: 'center', marginTop: 8 }}>
                     Overforingsgebyr: {formatNok(car.transferFee)} (betales av kjoper)

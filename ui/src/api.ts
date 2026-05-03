@@ -5,9 +5,10 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }
 const devMode = !(window as any)?.invokeNative
 
 let mockUsers: any[] = [
-    { id: 1, tlfnr: '00000000', is_admin: 1, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
-    { id: 2, tlfnr: '11111111', is_admin: 0, created_at: new Date().toISOString(), office_id: 1, office_name: 'Vestfold Bil', office_role: 'seller' },
-    { id: 3, tlfnr: '22222222', is_admin: 0, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
+    { id: 1, tlfnr: '00000000', name: 'Total Sjef', is_admin: 1, online: true, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
+    { id: 2, tlfnr: '11111111', name: 'Lars Selger', is_admin: 0, online: true, created_at: new Date().toISOString(), office_id: 1, office_name: 'Vestfold Bil', office_role: 'manager' },
+    { id: 3, tlfnr: '22222222', name: 'Kari Privat', is_admin: 0, online: false, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
+    { id: 4, tlfnr: '33333333', name: 'Per Kunde', is_admin: 0, online: true, created_at: new Date().toISOString(), office_id: null, office_name: null, office_role: null },
 ]
 let mockOffices: any[] = [
     { id: 1, name: 'Vestfold Bil', logo: '', commission_pct: 8, created_at: new Date().toISOString(), member_count: 1 },
@@ -64,23 +65,29 @@ function mockRespond(event: string, data: any): ApiResult<any> {
     switch (event) {
         case 'login': {
             if (data.tlfnr === '00000000' && data.password === 'admin') {
-                mockMe = { id: 1, tlfnr: '00000000', isAdmin: true, isSeller: false, officeId: null }
-                return reply({ token: 't-admin', isAdmin: true, isSeller: false, tlfnr: '00000000' })
+                mockMe = { id: 1, tlfnr: '00000000', name: 'Total Sjef', isAdmin: true, isSeller: false, officeId: null }
+                return reply({ token: 't-admin', isAdmin: true, isSeller: false, tlfnr: '00000000', name: 'Total Sjef' })
             }
             if (data.tlfnr === '11111111') {
-                mockMe = { id: 2, tlfnr: '11111111', isAdmin: false, isSeller: true, officeId: 1 }
-                return reply({ token: 't-sel', isAdmin: false, isSeller: true, tlfnr: '11111111' })
+                mockMe = { id: 2, tlfnr: '11111111', name: 'Lars Selger', isAdmin: false, isSeller: true, officeId: 1 }
+                return reply({ token: 't-sel', isAdmin: false, isSeller: true, tlfnr: '11111111', name: 'Lars Selger' })
             }
             if (data.tlfnr && data.password) {
-                mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false, isSeller: false, officeId: null }
-                return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr })
+                mockMe = { id: 99, tlfnr: data.tlfnr, name: 'Test Bruker', isAdmin: false, isSeller: false, officeId: null }
+                return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr, name: 'Test Bruker' })
             }
             return fail('Feil telefonnummer eller passord')
         }
         case 'register': {
-            mockMe = { id: 99, tlfnr: data.tlfnr, isAdmin: false, isSeller: false, officeId: null }
-            return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr })
+            mockMe = { id: 99, tlfnr: data.tlfnr, name: data.name || 'Ny Bruker', isAdmin: false, isSeller: false, officeId: null }
+            return reply({ token: 't-user', isAdmin: false, isSeller: false, tlfnr: data.tlfnr, name: data.name })
         }
+        case 'listMyAssignedCars':
+            return reply(mockCars.filter((c) => c.assignedSellerId === mockMe?.id))
+        case 'placeCallFromUser':
+            return reply(true)
+        case 'checkOnline':
+            return reply((data.userIds || []).map((id: number) => ({ id, online: mockUsers.find((u) => u.id === id)?.online === true })))
         case 'me':
             return mockMe ? reply(mockMe) : fail('Ikke innlogget')
         case 'logout':

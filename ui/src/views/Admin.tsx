@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken } from '../auth'
+import { popUp, startCall, formatPhoneNumber, takePhoto, pickFromGallery } from '../lbphone'
 import Stats from './Stats'
 import Offices from './Offices'
 import Settings from './Settings'
@@ -8,11 +9,15 @@ import Broadcast from './Broadcast'
 
 type Tab = 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'broadcast' | 'settings'
 
-type User = { id: number; tlfnr: string; is_admin: number; created_at: string; office_id: number | null; office_name: string | null }
+type User = {
+    id: number; tlfnr: string; name: string; is_admin: number; created_at: string;
+    office_id: number | null; office_name: string | null; online: boolean;
+}
 type Car = {
     id: number; make: string; model: string; year: number; price: number;
     mileage: number; image: string; description: string; status: string;
     listingType: string; sellerTlfnr?: string; approved: boolean;
+    assignedSellerTlfnr?: string; assignedOfficeName?: string;
 }
 type Interest = {
     id: number; tlfnr: string; user_id: number; car_id: number;
@@ -77,23 +82,58 @@ function AdminUsers() {
         await load()
     }
 
+    const callFromUser = async (u: User) => {
+        popUp({
+            title: 'Ring fra ' + (u.name || u.tlfnr),
+            description: 'Tlfnr som skal ringes (selger/admin):',
+            input: { type: 'tel', placeholder: '12345678', onChange: (v) => ((u as any)._target = v) },
+            buttons: [
+                { title: 'Avbryt', color: 'red' },
+                { title: 'Ring', color: 'blue', cb: async () => {
+                    const target = (u as any)._target
+                    if (!target) return
+                    const res = await api('placeCallFromUser', {
+                        token: getToken(), fromUserId: u.id, toTlfnr: target,
+                    })
+                    setMsg(res.ok ? 'Anrop startet pa ' + (u.name || u.tlfnr) : res.error || 'Feilet')
+                    setTimeout(() => setMsg(null), 2500)
+                } },
+            ],
+        })
+    }
+    const directCall = (u: User) => startCall(u.tlfnr)
+
     return (
         <div>
             {msg && <div className="success-banner">{msg}</div>}
             {users.map((u) => (
                 <div key={u.id} className="card list-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <div style={{ fontWeight: 500 }}>{u.tlfnr}
-                                {u.is_admin === 1 && <span className="tag" style={{ marginLeft: 6 }}>Admin</span>}
-                                {u.office_name && <span className="tag tag-blue" style={{ marginLeft: 6 }}>{u.office_name}</span>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span className={'online-dot ' + (u.online ? 'online' : '')} title={u.online ? 'Online' : 'Offline'} />
+                                {u.name || '(uten navn)'}
+                                {u.is_admin === 1 && <span className="tag" style={{ fontSize: '0.55rem' }}>Admin</span>}
+                                {u.office_name && <span className="tag tag-blue" style={{ fontSize: '0.55rem' }}>{u.office_name}</span>}
                             </div>
-                            <div className="meta">Opprettet {new Date(u.created_at).toLocaleDateString('no-NO')}</div>
+                            <div className="meta">{formatPhoneNumber(u.tlfnr)} · opprettet {new Date(u.created_at).toLocaleDateString('no-NO')}</div>
                         </div>
-                        <button className="btn btn-ghost" style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
-                            onClick={() => setResetting(resetting === u.id ? null : u.id)}>
-                            Reset pw
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {u.online && (
+                                <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem' }}
+                                    onClick={() => callFromUser(u)} title="Ring fra denne brukerens telefon">
+                                    Ring fra
+                                </button>
+                            )}
+                            <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem' }}
+                                onClick={() => directCall(u)}>
+                                Ring
+                            </button>
+                            <button className="btn btn-ghost" style={{ padding: '0.3rem 0.5rem', fontSize: '0.7rem' }}
+                                onClick={() => setResetting(resetting === u.id ? null : u.id)}>
+                                Reset pw
+                            </button>
+                        </div>
                     </div>
                     {resetting === u.id && (
                         <div style={{ marginTop: '0.5rem' }}>
@@ -156,7 +196,16 @@ function AdminCars() {
                 <input className="input" placeholder="Km" inputMode="numeric" value={editing.mileage || ''}
                     onChange={(e) => setEditing({ ...editing, mileage: parseInt(e.target.value, 10) || 0 })} />
                 <div style={{ height: 6 }} />
-                <input className="input" placeholder="Bilde URL" value={editing.image || ''} onChange={(e) => setEditing({ ...editing, image: e.target.value })} />
+                <label className="label">Bilde</label>
+                {editing.image && (
+                    <img src={editing.image} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 6, objectFit: 'cover', maxHeight: 160 }} />
+                )}
+                <div className="row" style={{ gap: '0.4rem' }}>
+                    <button className="btn btn-ghost" style={{ flex: 1, padding: '0.4rem' }}
+                        onClick={async () => { const r = await takePhoto(); if (r) setEditing({ ...editing, image: r.url }) }}>Ta bilde</button>
+                    <button className="btn btn-ghost" style={{ flex: 1, padding: '0.4rem' }}
+                        onClick={async () => { const r = await pickFromGallery(); if (r) setEditing({ ...editing, image: r.url }) }}>Galleri</button>
+                </div>
                 <div style={{ height: 6 }} />
                 <textarea className="input" rows={3} placeholder="Beskrivelse" value={editing.description || ''}
                     onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
@@ -177,9 +226,15 @@ function AdminCars() {
             {msg && <div className="success-banner">{msg}</div>}
             {cars.map((c) => (
                 <div key={c.id} className="card list-row" onClick={() => setEditing(c)} role="button">
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500 }}>{c.make} {c.model}</div>
                         <div className="meta">{c.year} · {formatNok(c.price)} · {c.status}</div>
+                        {(c.assignedSellerTlfnr || c.assignedOfficeName) && (
+                            <div className="meta" style={{ marginTop: 2 }}>
+                                {c.assignedOfficeName && <span className="tag tag-blue" style={{ fontSize: '0.55rem' }}>{c.assignedOfficeName}</span>}
+                                {c.assignedSellerTlfnr && <> · Selger: {formatPhoneNumber(c.assignedSellerTlfnr)}</>}
+                            </div>
+                        )}
                     </div>
                     <span className="muted">›</span>
                 </div>

@@ -8,33 +8,36 @@ local function err(message) return { ok = false, error = message } end
 -- AUTH
 ----------------------------------------------------------------
 
-lib.callback.register("bruktbiler:register", function(_, payload)
+lib.callback.register("bruktbiler:register", function(source, payload)
     payload = payload or {}
     local tlfnr = tostring(payload.tlfnr or ""):gsub("%s+", "")
     local password = tostring(payload.password or "")
+    local name = tostring(payload.name or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if #tlfnr < 4 then return err("Telefonnummer for kort") end
     if #password < 4 then return err("Passord for kort (min 4 tegn)") end
+    if name == "" then return err("Navn pakrevd") end
 
     local existing = MySQL.scalar.await("SELECT id FROM bb_users WHERE tlfnr = ?", { tlfnr })
     if existing then return err("Telefonnummeret er allerede registrert") end
 
     local salt = BB_GenerateSalt()
     local hash = BB_HashPassword(password, salt)
+    local license = BB_GetLicense(source)
     local id = MySQL.insert.await(
-        "INSERT INTO bb_users (tlfnr, password_hash, salt, is_admin) VALUES (?, ?, ?, 0)",
-        { tlfnr, hash, salt }
+        "INSERT INTO bb_users (tlfnr, name, password_hash, salt, is_admin, license) VALUES (?, ?, ?, ?, 0, ?)",
+        { tlfnr, name, hash, salt, license }
     )
     local token = BB_CreateSession(id)
-    return ok({ token = token, isAdmin = false, isSeller = false, tlfnr = tlfnr })
+    return ok({ token = token, isAdmin = false, isSeller = false, tlfnr = tlfnr, name = name })
 end)
 
-lib.callback.register("bruktbiler:login", function(_, payload)
+lib.callback.register("bruktbiler:login", function(source, payload)
     payload = payload or {}
     local tlfnr = tostring(payload.tlfnr or ""):gsub("%s+", "")
     local password = tostring(payload.password or "")
 
     local row = MySQL.single.await(
-        "SELECT id, password_hash, salt, is_admin FROM bb_users WHERE tlfnr = ?", { tlfnr }
+        "SELECT id, name, password_hash, salt, is_admin FROM bb_users WHERE tlfnr = ?", { tlfnr }
     )
     if not row then return err("Feil telefonnummer eller passord") end
     local hash = BB_HashPassword(password, row.salt)
@@ -42,11 +45,18 @@ lib.callback.register("bruktbiler:login", function(_, payload)
         return err("Feil telefonnummer eller passord")
     end
 
+    -- Oppdater license ved hver login slik at den alltid er fersk.
+    local license = BB_GetLicense(source)
+    if license then
+        MySQL.query.await("UPDATE bb_users SET license = ? WHERE id = ?", { license, row.id })
+    end
+
     local token = BB_CreateSession(row.id)
     local officeId = MySQL.scalar.await(
         "SELECT office_id FROM bb_office_members WHERE user_id = ? LIMIT 1", { row.id }
     )
-    return ok({ token = token, isAdmin = row.is_admin == 1, isSeller = officeId ~= nil, tlfnr = tlfnr })
+    return ok({ token = token, isAdmin = row.is_admin == 1, isSeller = officeId ~= nil,
+        tlfnr = tlfnr, name = row.name })
 end)
 
 lib.callback.register("bruktbiler:logout", function(_, payload)
@@ -59,7 +69,7 @@ lib.callback.register("bruktbiler:me", function(_, payload)
     local user, e = BB_RequireAuth((payload or {}).token)
     if not user then return err(e) end
     return ok({
-        id = user.id, tlfnr = user.tlfnr,
+        id = user.id, tlfnr = user.tlfnr, name = user.name,
         isAdmin = user.is_admin == 1, isSeller = user.is_seller == true,
         officeId = user.office_id,
     })
@@ -464,6 +474,19 @@ end)
 -- SALES (manuell gjennomforing av selger)
 ----------------------------------------------------------------
 
+lib.callback.register("bruktbiler:listMyAssignedCars", function(_, payload)
+    local user, e = BB_RequireSeller((payload or {}).token)
+    if not user then return err(e) end
+    local rows = MySQL.query.await([[
+        SELECT c.id, c.make, c.model, c.year, c.price, c.status, c.image
+        FROM bb_cars c
+        WHERE c.assigned_seller_id = ?
+          AND c.status IN ('available','auction','pending')
+        ORDER BY c.created_at DESC
+    ]], { user.id }) or {}
+    return ok(rows)
+end)
+
 lib.callback.register("bruktbiler:completeSale", function(_, payload)
     payload = payload or {}
     local user, e = BB_RequireSeller(payload.token)
@@ -666,13 +689,18 @@ lib.callback.register("bruktbiler:adminListUsers", function(_, payload)
     local user, e = BB_RequireAdmin((payload or {}).token)
     if not user then return err(e) end
     local rows = MySQL.query.await([[
-        SELECT u.id, u.tlfnr, u.is_admin, u.created_at,
+        SELECT u.id, u.tlfnr, u.name, u.is_admin, u.created_at,
                m.office_id, o.name AS office_name, m.role AS office_role
         FROM bb_users u
         LEFT JOIN bb_office_members m ON m.user_id = u.id
         LEFT JOIN bb_offices o ON o.id = m.office_id
         ORDER BY u.created_at DESC
     ]]) or {}
+    -- Annoter med online-status
+    local ids = {}
+    for i, r in ipairs(rows) do ids[i] = r.id end
+    local online = BB_OnlineMap(ids)
+    for _, r in ipairs(rows) do r.online = online[r.id] == true end
     return ok(rows)
 end)
 
@@ -968,6 +996,32 @@ end)
 ----------------------------------------------------------------
 -- ADMIN: BROADCAST
 ----------------------------------------------------------------
+
+-- Admin/manager: trigger native LB Phone-anrop fra en bruker til et tlfnr.
+-- F.eks. for a "ringe sammen" en kunde og selger.
+lib.callback.register("bruktbiler:placeCallFromUser", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireSeller(payload.token)
+    if not user then return err(e) end
+    local fromUserId = tonumber(payload.fromUserId)
+    local toTlfnr = tostring(payload.toTlfnr or "")
+    if not fromUserId or toTlfnr == "" then return err("Mangler felt") end
+    local sent = BB_TriggerCallFromUser(fromUserId, toTlfnr)
+    if not sent then return err("Brukeren er ikke tilkoblet") end
+    return ok(true)
+end)
+
+-- Sjekk om en gitt tlfnr/user er online
+lib.callback.register("bruktbiler:checkOnline", function(_, payload)
+    local user, e = BB_RequireAuth((payload or {}).token)
+    if not user then return err(e) end
+    local userIds = payload.userIds or {}
+    if #userIds == 0 then return ok({}) end
+    local online = BB_OnlineMap(userIds)
+    local out = {}
+    for _, id in ipairs(userIds) do out[#out + 1] = { id = id, online = online[id] == true } end
+    return ok(out)
+end)
 
 lib.callback.register("bruktbiler:adminBroadcast", function(_, payload)
     payload = payload or {}

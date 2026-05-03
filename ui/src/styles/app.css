@@ -564,14 +564,53 @@
     letter-spacing: 0.05em;
 }
 
-.filter-panel {
-    background: rgba(255,255,255,0.02);
+.filter-drawer {
+    width: 100%;
+    max-height: 90%;
+    background: var(--bg-1);
     border: 1px solid var(--line);
-    border-radius: var(--radius-m);
-    padding: 0.7rem 0.8rem;
-    margin-bottom: 0.7rem;
-    animation: fadein 0.2s ease;
+    border-radius: var(--radius-l);
+    padding: 1rem 1rem 1.2rem;
+    box-shadow: var(--shadow-card);
+    overflow-y: auto;
+    animation: drawerin 0.25s ease;
 }
+@keyframes drawerin {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.grid-toggle {
+    display: inline-flex;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px;
+}
+.grid-toggle button {
+    background: transparent;
+    border: none;
+    color: var(--text-faint);
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.grid-toggle button.active {
+    background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+    color: #18130b;
+}
+
+.car-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.car-grid-2 .car-card-title { font-size: 0.85rem; }
+.car-grid-2 .car-card-price { font-size: 0.85rem; }
+.car-grid-2 .car-card-body { padding: 0.55rem 0.65rem 0.7rem; }
 
 /* ----- Stats ----- */
 
@@ -612,6 +651,19 @@
     height: 100%;
     background: linear-gradient(90deg, var(--gold-soft), var(--gold));
     border-radius: 3px;
+}
+
+/* ----- Online dot ----- */
+.online-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    flex-shrink: 0;
+}
+.online-dot.online {
+    background: var(--success);
+    box-shadow: 0 0 6px rgba(74,222,128,0.6);
 }
 
 /* ----- Inbox unread highlight ----- */

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken, useAuth } from '../auth'
+import { contactSelector, formatPhoneNumber } from '../lbphone'
 
 type SellReq = {
     id: number; user_id: number; owner_tlfnr: string; make: string; model: string; year: number;
     expected_price: number; mileage: number; image: string; description: string;
     listing_type: string; status: string; assigned_seller_id: number | null;
+}
+type MyCar = {
+    id: number; make: string; model: string; year: number; price: number; status: string; image: string;
 }
 
 export default function SellerWork() {
@@ -14,14 +18,19 @@ export default function SellerWork() {
     const [active, setActive] = useState<SellReq | null>(null)
     const [commission, setCommission] = useState('8')
     const [msg, setMsg] = useState<string | null>(null)
-    const [completing, setCompleting] = useState<number | null>(null)
+    const [myCars, setMyCars] = useState<MyCar[]>([])
+    const [saleCarId, setSaleCarId] = useState<number | null>(null)
     const [buyerTlfnr, setBuyerTlfnr] = useState('')
     const [salePrice, setSalePrice] = useState('')
 
-    const load = () =>
+    const load = () => {
         api<SellReq[]>('listOpenSellRequests', { token: getToken() }).then((res) => {
             if (res.ok) setItems(res.data)
         })
+        api<MyCar[]>('listMyAssignedCars', { token: getToken() }).then((res) => {
+            if (res.ok) setMyCars(res.data)
+        })
+    }
     useEffect(() => { load() }, [])
 
     const claim = async (id: number) => {
@@ -39,16 +48,20 @@ export default function SellerWork() {
         else setMsg(res.error)
         setTimeout(() => setMsg(null), 1800)
     }
-    const complete = async (carId: number) => {
+    const complete = async () => {
+        if (!saleCarId) { setMsg('Velg en bil'); return }
+        if (!buyerTlfnr || !salePrice) { setMsg('Mangler kjoper eller pris'); return }
         const res = await api<{ commission: number; transferFee: number }>('completeSale', {
-            token: getToken(), carId, buyerTlfnr, salePrice: parseInt(salePrice, 10),
+            token: getToken(), carId: saleCarId, buyerTlfnr, salePrice: parseInt(salePrice, 10),
         })
         if (res.ok) {
             setMsg(`Salg fullfort! Provisjon ${formatNok(res.data.commission)}, gebyr ${formatNok(res.data.transferFee)}`)
-            setCompleting(null); setBuyerTlfnr(''); setSalePrice('')
+            setSaleCarId(null); setBuyerTlfnr(''); setSalePrice('')
+            await load()
         } else setMsg(res.error)
         setTimeout(() => setMsg(null), 3500)
     }
+    const pickBuyer = () => contactSelector((number) => setBuyerTlfnr(number))
 
     if (active) {
         return (
@@ -107,24 +120,40 @@ export default function SellerWork() {
             ))}
 
             <h3 className="section-title">Fullfor salg</h3>
-            <p className="muted" style={{ fontSize: '0.78rem' }}>
-                Skriv inn bil-ID og kjopers tlfnr for a registrere et salg.
+            <p className="muted" style={{ fontSize: '0.78rem', marginTop: 0 }}>
+                Bare biler tildelt deg vises i listen.
             </p>
-            {completing !== null ? (
-                <div className="card" style={{ padding: '0.8rem' }}>
-                    <label className="label">Kjopers tlfnr</label>
-                    <input className="input" value={buyerTlfnr} onChange={(e) => setBuyerTlfnr(e.target.value)} />
-                    <label className="label">Salgssum (kr)</label>
-                    <input className="input" inputMode="numeric" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
-                    <div style={{ height: 8 }} />
-                    <div className="row">
-                        <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => complete(completing)}>Bekreft salg</button>
-                        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setCompleting(null)}>Avbryt</button>
-                    </div>
-                </div>
+
+            {myCars.length === 0 ? (
+                <div className="empty">Ingen biler tildelt deg.</div>
             ) : (
-                <input className="input" placeholder="Bil-ID" inputMode="numeric"
-                    onKeyDown={(e) => { if (e.key === 'Enter') setCompleting(parseInt((e.target as HTMLInputElement).value, 10)) }} />
+                <div className="card" style={{ padding: '0.8rem' }}>
+                    <label className="label">Velg bil</label>
+                    <select className="input" value={saleCarId ?? ''}
+                        onChange={(e) => setSaleCarId(parseInt(e.target.value, 10) || null)}>
+                        <option value="">— Velg —</option>
+                        {myCars.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.make} {c.model} ({c.year}) — {formatNok(c.price)}
+                            </option>
+                        ))}
+                    </select>
+
+                    <label className="label">Kjopers tlfnr</label>
+                    <div className="row" style={{ gap: '0.4rem' }}>
+                        <input className="input" style={{ flex: 1 }} value={buyerTlfnr}
+                            onChange={(e) => setBuyerTlfnr(e.target.value)} placeholder="Velg fra kontakter eller skriv" />
+                        <button className="btn btn-ghost" onClick={pickBuyer}
+                            style={{ padding: '0 0.7rem', whiteSpace: 'nowrap' }}>Kontakter</button>
+                    </div>
+                    {buyerTlfnr && <div className="muted" style={{ fontSize: '0.72rem', marginTop: 4 }}>{formatPhoneNumber(buyerTlfnr)}</div>}
+
+                    <label className="label">Salgssum (kr)</label>
+                    <input className="input" inputMode="numeric" value={salePrice}
+                        onChange={(e) => setSalePrice(e.target.value)} />
+                    <div style={{ height: 10 }} />
+                    <button className="btn btn-gold btn-block" onClick={complete}>Bekreft salg</button>
+                </div>
             )}
         </div>
     )

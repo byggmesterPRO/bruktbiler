@@ -36,6 +36,15 @@ AddEventHandler("onResourceStart", function(resource)
     end
 end)
 
+-- Innkommende: server ber denne klienten starte et anrop til et tlfnr.
+RegisterNetEvent("bruktbiler:placeCall", function(targetTlfnr)
+    if not targetTlfnr or targetTlfnr == "" then return end
+    local ok, err = pcall(function()
+        exports["lb-phone"]:StartCall({ number = targetTlfnr })
+    end)
+    if not ok then print("[bruktbiler] StartCall feilet:", err) end
+end)
+
 RegisterNUICallback("bruktbiler:call", function(payload, cb)
     local event = payload and payload.event
     local data = payload and payload.data or {}

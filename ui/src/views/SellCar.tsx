@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, formatNok } from '../api'
 import { getToken } from '../auth'
+import { takePhoto, pickFromGallery } from '../lbphone'
 
 const TYPE_OPTIONS = [
     {
@@ -113,8 +114,20 @@ export default function SellCar() {
                 </div>
                 <label className="label">Onsket pris (kr)</label>
                 <input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
-                <label className="label">Bilde-URL</label>
-                <input className="input" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." />
+                <label className="label">Bilde av bilen</label>
+                {image && (
+                    <img src={image} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 6, objectFit: 'cover', maxHeight: 160 }} />
+                )}
+                <div className="row" style={{ gap: '0.4rem' }}>
+                    <button className="btn btn-ghost" style={{ flex: 1, padding: '0.5rem' }}
+                        onClick={async () => { const r = await takePhoto(); if (r) setImage(r.url) }}>
+                        Ta bilde
+                    </button>
+                    <button className="btn btn-ghost" style={{ flex: 1, padding: '0.5rem' }}
+                        onClick={async () => { const r = await pickFromGallery(); if (r) setImage(r.url) }}>
+                        Velg fra galleri
+                    </button>
+                </div>
                 <label className="label">Beskrivelse</label>
                 <textarea className="input" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
 

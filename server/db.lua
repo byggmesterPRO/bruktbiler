@@ -197,19 +197,28 @@ function BB_InstallSchema()
     for _, stmt in ipairs(SCHEMA) do
         MySQL.query.await(stmt)
     end
-    -- Ensure new columns exist on bb_cars when upgrading from v1.
-    local toAdd = {
-        { col = "assigned_office_id", def = "INT NULL" },
-        { col = "assigned_seller_id", def = "INT NULL" },
-    }
-    for _, c in ipairs(toAdd) do
+    local function ensureCol(table, col, def)
         local exists = MySQL.scalar.await([[
             SELECT COUNT(*) FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bb_cars' AND COLUMN_NAME = ?
-        ]], { c.col })
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+        ]], { table, col })
         if (exists or 0) == 0 then
-            MySQL.query.await(("ALTER TABLE bb_cars ADD COLUMN %s %s"):format(c.col, c.def))
+            MySQL.query.await(("ALTER TABLE %s ADD COLUMN %s %s"):format(table, col, def))
         end
+    end
+    ensureCol("bb_cars", "assigned_office_id", "INT NULL")
+    ensureCol("bb_cars", "assigned_seller_id", "INT NULL")
+    ensureCol("bb_users", "name", "VARCHAR(80) NULL")
+    ensureCol("bb_users", "license", "VARCHAR(80) NULL")
+    -- Index for fast online-lookup
+    local idx = MySQL.scalar.await([[
+        SELECT COUNT(*) FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bb_users' AND INDEX_NAME = 'idx_users_license'
+    ]])
+    if (idx or 0) == 0 then
+        pcall(function()
+            MySQL.query.await("CREATE INDEX idx_users_license ON bb_users(license)")
+        end)
     end
 
     for k, v in pairs(DEFAULT_SETTINGS) do
