@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, formatNok, formatKm } from '../api'
 import { getToken } from '../auth'
 import { IconSearch, IconClose } from '../components/Icon'
+import Catalog from './Catalog'
 
 type Car = {
     id: number; make: string; model: string; year: number; price: number;
@@ -27,6 +28,7 @@ const TYPE_LABEL_SHORT: Record<string, string> = {
 const GRID_KEY = 'bb_grid'
 
 export default function Cars({ onOpen }: { onOpen: (id: number) => void }) {
+    const [mode, setMode] = useState<'bruktbil' | 'katalog'>('bruktbil')
     const [cars, setCars] = useState<Car[] | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [showFilter, setShowFilter] = useState(false)
@@ -68,8 +70,24 @@ export default function Cars({ onOpen }: { onOpen: (id: number) => void }) {
 
     if (error) return <div className="error-banner">{error}</div>
 
+    if (mode === 'katalog') {
+        return (
+            <div>
+                <div className="mode-switch">
+                    <button className={mode === 'bruktbil' ? 'active' : ''} onClick={() => setMode('bruktbil')}>Bruktbil</button>
+                    <button className={mode === 'katalog' ? 'active' : ''} onClick={() => setMode('katalog')}>Katalog</button>
+                </div>
+                <Catalog onOpen={onOpen} />
+            </div>
+        )
+    }
+
     return (
         <div>
+            <div className="mode-switch">
+                <button className={mode === 'bruktbil' ? 'active' : ''} onClick={() => setMode('bruktbil')}>Bruktbil</button>
+                <button className={'katalog' === (mode as any) ? 'active' : ''} onClick={() => setMode('katalog')}>Katalog</button>
+            </div>
             <div className="search-bar">
                 <IconSearch />
                 <input className="search-input" placeholder="Sok merke, modell..."

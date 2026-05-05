@@ -16,6 +16,7 @@ let mockOffices: any[] = [
 ]
 let mockCars: any[] = [
     { id: 1, make: 'Audi', model: 'RS6 Avant', year: 2022, price: 1450000, mileage: 18000,
+      originalPrice: 1950000,
       image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=900',
       description: 'Plettfri RS6 i Mythos Black. Full historikk.',
       status: 'available', listingType: 'dealership', sellerUserId: null, sellerTlfnr: null,
@@ -144,6 +145,42 @@ function mockRespond(event: string, data: any): ApiResult<any> {
         ])
         case 'createPayout': return reply({ id: Date.now() })
         case 'markPayoutPaid': return reply(true)
+        case 'listCatalogFirmaer': return reply([
+            { firma: 'Gubbens', model_count: 3 }, { firma: 'Nordic', model_count: 2 },
+        ])
+        case 'listCatalog': {
+            const all = [
+                { id: 1, firma: 'Gubbens', make: 'Audi', model: 'RS6 Avant', variant: 'Performance', new_price: 1_950_000, image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=900', description: '', used_count: 1, lowest_used_price: 1_450_000 },
+                { id: 2, firma: 'Gubbens', make: 'Porsche', model: '911 GT3', variant: '', new_price: 2_950_000, image: 'https://images.unsplash.com/photo-1611821064430-0d40291922d2?w=900', description: '', used_count: 1, lowest_used_price: 2_390_000 },
+                { id: 3, firma: 'Gubbens', make: 'Mercedes', model: 'AMG GT', variant: '4-dorers', new_price: 2_400_000, image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=900', description: '', used_count: 1, lowest_used_price: 1_850_000 },
+                { id: 4, firma: 'Nordic', make: 'BMW', model: 'M3 Competition', variant: '', new_price: 1_590_000, image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=900', description: '', used_count: 1, lowest_used_price: 1_190_000 },
+                { id: 5, firma: 'Nordic', make: 'BMW', model: 'X5 M', variant: 'Competition', new_price: 1_790_000, image: '', description: '', used_count: 0, lowest_used_price: null },
+            ]
+            let filtered = all
+            if (data.firma) filtered = filtered.filter((m) => m.firma === data.firma)
+            if (data.q) filtered = filtered.filter((m) => `${m.make} ${m.model}`.toLowerCase().includes(String(data.q).toLowerCase()))
+            return reply(filtered)
+        }
+        case 'getCatalogModel': {
+            const m = { id: data.id, firma: 'Gubbens', make: 'Audi', model: 'RS6 Avant',
+                variant: 'Performance', new_price: 1_950_000,
+                image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=900',
+                description: 'Audi RS6 Avant Performance — 630 hk, 4.0 TFSI biturbo. Quattro standard.',
+                cars: mockCars.filter((c) => c.make === 'Audi' && c.model === 'RS6 Avant').map((c) => ({
+                    id: c.id, make: c.make, model: c.model, year: c.year, price: c.price,
+                    mileage: c.mileage, image: c.image, status: c.status,
+                    original_price: 1_950_000, listingType: c.listingType,
+                })),
+            }
+            return reply(m)
+        }
+        case 'adminListCatalog': return reply([
+            { id: 1, firma: 'Gubbens', make: 'Audi', model: 'RS6 Avant', variant: 'Performance', new_price: 1_950_000, image: '', description: '', active: 1 },
+            { id: 2, firma: 'Gubbens', make: 'Porsche', model: '911 GT3', variant: '', new_price: 2_950_000, image: '', description: '', active: 1 },
+            { id: 3, firma: 'Nordic', make: 'BMW', model: 'M3 Competition', variant: '', new_price: 1_590_000, image: '', description: '', active: 1 },
+        ])
+        case 'adminUpsertCatalog': return reply({ id: data.id || Date.now() })
+        case 'adminDeleteCatalog': return reply(true)
         case 'reserveCar': return reply({ id: Date.now(), deposit: Math.floor((mockCars.find((c) => c.id === data.carId)?.price || 0) * 0.05), expiresAt: new Date(Date.now() + 86400000).toISOString() })
         case 'cancelReservation': return reply(true)
         case 'getActiveReservation': return reply(null)

@@ -275,6 +275,22 @@ local SCHEMA = {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ]],
     [[
+    CREATE TABLE IF NOT EXISTS bb_catalog_models (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        firma VARCHAR(64) NOT NULL,
+        make VARCHAR(64) NOT NULL,
+        model VARCHAR(64) NOT NULL,
+        variant VARCHAR(64) NULL,
+        new_price INT NOT NULL,
+        image TEXT,
+        description TEXT,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_make_model_variant (make, model, variant),
+        INDEX idx_firma (firma)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ]],
+    [[
     CREATE TABLE IF NOT EXISTS bb_reservations (
         id INT AUTO_INCREMENT PRIMARY KEY,
         car_id INT NOT NULL,
@@ -364,6 +380,8 @@ function BB_InstallSchema()
     ensureCol("bb_users", "license", "VARCHAR(80) NULL")
     -- Floor-pct: andel av provisjon som gar "opp" til selskapet (resten = bonus-pool)
     ensureCol("bb_offices", "floor_pct", "INT NOT NULL DEFAULT 10")
+    ensureCol("bb_cars", "original_price", "INT NULL")
+    ensureCol("bb_cars", "catalog_model_id", "INT NULL")
     -- Index for fast online-lookup
     local idx = MySQL.scalar.await([[
         SELECT COUNT(*) FROM information_schema.STATISTICS

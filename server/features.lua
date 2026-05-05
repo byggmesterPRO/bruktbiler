@@ -551,6 +551,133 @@ lib.callback.register("bruktbiler:createPayout", function(_, payload)
 end)
 
 ----------------------------------------------------------------
+-- CATALOG
+----------------------------------------------------------------
+
+lib.callback.register("bruktbiler:listCatalog", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAuth(payload.token)
+    if not user then return err(e) end
+
+    local where = { "m.active = 1" }
+    local params = {}
+    if payload.firma and payload.firma ~= "" then
+        table.insert(where, "m.firma = ?"); table.insert(params, payload.firma)
+    end
+    if payload.q and payload.q ~= "" then
+        table.insert(where, "(m.make LIKE ? OR m.model LIKE ? OR CONCAT(m.make,' ',m.model) LIKE ?)")
+        local like = "%" .. payload.q .. "%"
+        table.insert(params, like); table.insert(params, like); table.insert(params, like)
+    end
+
+    local sql = ([[
+        SELECT m.id, m.firma, m.make, m.model, m.variant, m.new_price, m.image, m.description,
+               (SELECT COUNT(*) FROM bb_cars c
+                WHERE c.make = m.make AND c.model = m.model
+                  AND c.approved = 1 AND c.status IN ('available','auction')) AS used_count,
+               (SELECT MIN(c.price) FROM bb_cars c
+                WHERE c.make = m.make AND c.model = m.model
+                  AND c.approved = 1 AND c.status IN ('available','auction')) AS lowest_used_price
+        FROM bb_catalog_models m
+        WHERE %s
+        ORDER BY m.firma ASC, m.make ASC, m.model ASC
+    ]]):format(table.concat(where, " AND "))
+
+    local rows = MySQL.query.await(sql, params) or {}
+    return ok(rows)
+end)
+
+lib.callback.register("bruktbiler:listCatalogFirmaer", function(_, payload)
+    local user, e = BB_RequireAuth((payload or {}).token)
+    if not user then return err(e) end
+    local rows = MySQL.query.await([[
+        SELECT firma, COUNT(*) AS model_count
+        FROM bb_catalog_models WHERE active = 1
+        GROUP BY firma ORDER BY firma ASC
+    ]]) or {}
+    return ok(rows)
+end)
+
+lib.callback.register("bruktbiler:getCatalogModel", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAuth(payload.token)
+    if not user then return err(e) end
+    local id = tonumber(payload.id)
+    if not id then return err("Ugyldig") end
+
+    local model = MySQL.single.await("SELECT * FROM bb_catalog_models WHERE id = ?", { id })
+    if not model then return err("Modell finnes ikke") end
+
+    local cars = MySQL.query.await([[
+        SELECT c.id, c.make, c.model, c.year, c.price, c.mileage, c.image, c.status, c.original_price,
+               c.listing_type AS listingType
+        FROM bb_cars c
+        WHERE c.make = ? AND c.model = ? AND c.approved = 1
+          AND c.status IN ('available','auction')
+        ORDER BY c.price ASC
+    ]], { model.make, model.model }) or {}
+    model.cars = cars
+    return ok(model)
+end)
+
+lib.callback.register("bruktbiler:adminUpsertCatalog", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAdmin(payload.token)
+    if not user then return err(e) end
+    local id = tonumber(payload.id)
+    local fields = {
+        firma = tostring(payload.firma or ""),
+        make = tostring(payload.make or ""),
+        model = tostring(payload.model or ""),
+        variant = payload.variant ~= "" and payload.variant or nil,
+        new_price = tonumber(payload.newPrice) or 0,
+        image = tostring(payload.image or ""),
+        description = tostring(payload.description or ""),
+    }
+    if fields.firma == "" or fields.make == "" or fields.model == "" or fields.new_price <= 0 then
+        return err("Mangler felt")
+    end
+
+    if id then
+        MySQL.query.await([[
+            UPDATE bb_catalog_models SET firma=?, make=?, model=?, variant=?,
+                new_price=?, image=?, description=? WHERE id=?
+        ]], { fields.firma, fields.make, fields.model, fields.variant,
+              fields.new_price, fields.image, fields.description, id })
+        BB_Audit(user, "update_catalog_model", "catalog", id)
+        return ok({ id = id })
+    end
+
+    local newId = MySQL.insert.await([[
+        INSERT INTO bb_catalog_models (firma, make, model, variant, new_price, image, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ]], { fields.firma, fields.make, fields.model, fields.variant,
+          fields.new_price, fields.image, fields.description })
+    BB_Audit(user, "create_catalog_model", "catalog", newId)
+    return ok({ id = newId })
+end)
+
+lib.callback.register("bruktbiler:adminDeleteCatalog", function(_, payload)
+    payload = payload or {}
+    local user, e = BB_RequireAdmin(payload.token)
+    if not user then return err(e) end
+    local id = tonumber(payload.id)
+    if not id then return err("Ugyldig") end
+    MySQL.query.await("DELETE FROM bb_catalog_models WHERE id = ?", { id })
+    BB_Audit(user, "delete_catalog_model", "catalog", id)
+    return ok(true)
+end)
+
+lib.callback.register("bruktbiler:adminListCatalog", function(_, payload)
+    local user, e = BB_RequireAdmin((payload or {}).token)
+    if not user then return err(e) end
+    local rows = MySQL.query.await(
+        "SELECT * FROM bb_catalog_models ORDER BY firma, make, model"
+    ) or {}
+    return ok(rows)
+end)
+
+----------------------------------------------------------------
 -- RESERVATIONS
 ----------------------------------------------------------------
 

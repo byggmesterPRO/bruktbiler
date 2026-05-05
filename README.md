@@ -27,6 +27,11 @@ En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone). K
   <tr>
     <td align="center"><img src="screenshots/10-inbox.png" width="220"/><br/><sub>Innboks</sub></td>
     <td align="center"><img src="screenshots/11-sell.png" width="220"/><br/><sub>Selg en bil</sub></td>
+    <td align="center"><img src="screenshots/12-catalog.png" width="220"/><br/><sub>Bilkatalog</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/13-catalog-model.png" width="220"/><br/><sub>Modell-detalj med brukte</sub></td>
+    <td></td>
     <td></td>
   </tr>
 </table>
@@ -40,6 +45,8 @@ En premium bruktbiler-app for [LB Phone](https://docs.lbscripts.com/lb-phone). K
 - **Reservering** — reserver bil i 24t mot depositum
 - **Finansiering** — søk nedbetalingsplan med valgfri terminlengde og rente
 - **Ønskeliste** + **prisvarsel** — bli varslet når matchende biler dukker opp
+- **Bilkatalog** — bla i biler fra forskjellige firmaer (Gubbens, Nordic, ...) med nypris og link til brukte versjoner som er tilgjengelige
+- **Du sparer X kr** — bilannonser viser nypris vs salgspris med besparelse i kr og %
 - **Vis interesse** — gir push-varsel + innboks-melding til ansvarlig selger
 - **Auksjoner** med live nedtelling, bud-historikk og auto-utvarsling om utbud
 - **Selg bilen din** — send forespørsel om konsignasjon (i butikk eller med visning hos deg). En selger fra et av kontorene tar over og hjelper deg

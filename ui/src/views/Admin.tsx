@@ -12,13 +12,15 @@ import Settings from './Settings'
 import Broadcast from './Broadcast'
 import AuditLog from './AuditLog'
 import OfficeGoals from './OfficeGoals'
+import AdminCatalog from './AdminCatalog'
 
-type Tab = 'home' | 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'goals' | 'broadcast' | 'audit' | 'settings'
+type Tab = 'home' | 'stats' | 'cars' | 'pending' | 'auctions' | 'interests' | 'users' | 'offices' | 'goals' | 'broadcast' | 'audit' | 'settings' | 'catalog'
 
 const TILES: { id: Exclude<Tab, 'home'>; label: string; sub: string; Icon: any; color: string }[] = [
     { id: 'stats',     label: 'Statistikk', sub: 'Omsetning og salg',   Icon: IconStats,    color: '#d4af37' },
     { id: 'pending',   label: 'Venter',     sub: 'Annonser til godkj.', Icon: IconCheck,    color: '#4ade80' },
     { id: 'cars',      label: 'Biler',      sub: 'Alle biler',          Icon: IconCar,      color: '#6ea8ff' },
+    { id: 'catalog',   label: 'Katalog',    sub: 'Modeller fra firma',  Icon: IconBuilding, color: '#e6c659' },
     { id: 'auctions',  label: 'Auksjoner',  sub: 'Start og avslutt',    Icon: IconHandshake,color: '#e6c659' },
     { id: 'interests', label: 'Interesser', sub: 'Alle interessenter',  Icon: IconStar,     color: '#d4af37' },
     { id: 'users',     label: 'Brukere',    sub: 'Tlfnr og passord',    Icon: IconBell,     color: '#9ca3af' },
@@ -37,6 +39,7 @@ type Car = {
     id: number; make: string; model: string; year: number; price: number;
     mileage: number; image: string; description: string; status: string;
     listingType: string; sellerTlfnr?: string; approved: boolean;
+    originalPrice?: number | null;
     assignedSellerTlfnr?: string; assignedOfficeName?: string;
 }
 type Interest = {
@@ -76,6 +79,7 @@ export default function Admin() {
             </div>
             {tab === 'stats' && <Stats />}
             {tab === 'cars' && <AdminCars />}
+            {tab === 'catalog' && <AdminCatalog />}
             {tab === 'pending' && <AdminPending />}
             {tab === 'auctions' && <AdminAuctions />}
             {tab === 'interests' && <AdminInterests />}
@@ -202,7 +206,7 @@ function AdminCars() {
     const save = async () => {
         if (!editing) return
         const event = editing.id ? 'adminUpdateCar' : 'adminCreateCar'
-        const res = await api(event, { token: getToken(), ...editing })
+        const res = await api(event, { token: getToken(), ...editing, originalPrice: editing.originalPrice })
         if (res.ok) { setEditing(null); setMsg('Lagret'); await load() }
         else setMsg(res.error)
         setTimeout(() => setMsg(null), 2000)
@@ -227,6 +231,10 @@ function AdminCars() {
                 <div style={{ height: 6 }} />
                 <input className="input" placeholder="Pris" inputMode="numeric" value={editing.price || ''}
                     onChange={(e) => setEditing({ ...editing, price: parseInt(e.target.value, 10) || 0 })} />
+                <div style={{ height: 6 }} />
+                <input className="input" placeholder="Nypris (valgfri, for besparelses-vising)" inputMode="numeric"
+                    value={editing.originalPrice || ''}
+                    onChange={(e) => setEditing({ ...editing, originalPrice: parseInt(e.target.value, 10) || 0 })} />
                 <div style={{ height: 6 }} />
                 <input className="input" placeholder="Km" inputMode="numeric" value={editing.mileage || ''}
                     onChange={(e) => setEditing({ ...editing, mileage: parseInt(e.target.value, 10) || 0 })} />

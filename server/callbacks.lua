@@ -97,6 +97,7 @@ local function carRow(row)
         id = row.id, make = row.make, model = row.model, year = row.year,
         price = row.price, mileage = row.mileage, image = row.image,
         description = row.description, status = row.status,
+        originalPrice = row.original_price, catalogModelId = row.catalog_model_id,
         listingType = row.listing_type, sellerUserId = row.seller_user_id,
         sellerTlfnr = row.seller_tlfnr,
         assignedOfficeId = row.assigned_office_id, assignedOfficeName = row.office_name,
@@ -764,12 +765,12 @@ lib.callback.register("bruktbiler:adminCreateCar", function(_, payload)
     end
     local id = MySQL.insert.await([[
         INSERT INTO bb_cars (make, model, year, price, mileage, image, description,
-                             status, listing_type, assigned_office_id, approved)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'available', 'dealership', ?, 1)
+                             status, listing_type, assigned_office_id, original_price, approved)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'available', 'dealership', ?, ?, 1)
     ]], {
         payload.make, payload.model, tonumber(payload.year), tonumber(payload.price),
         tonumber(payload.mileage) or 0, payload.image or "", payload.description or "",
-        payload.officeId,
+        payload.officeId, tonumber(payload.originalPrice),
     })
     BB_Audit(user, "create_car", "car", id, { make = payload.make, model = payload.model })
     pcall(function() BB_TriggerPriceAlerts(id) end)
@@ -784,13 +785,15 @@ lib.callback.register("bruktbiler:adminUpdateCar", function(_, payload)
     if not id then return err("Ugyldig") end
     MySQL.query.await([[
         UPDATE bb_cars SET make=?, model=?, year=?, price=?, mileage=?, image=?,
-                           description=?, status=?, assigned_office_id=?, assigned_seller_id=?
+                           description=?, status=?, assigned_office_id=?, assigned_seller_id=?,
+                           original_price=?
         WHERE id=?
     ]], {
         payload.make, payload.model, payload.year, payload.price,
         payload.mileage or 0, payload.image or "", payload.description or "",
         payload.status or "available",
-        payload.officeId, payload.sellerId, id
+        payload.officeId, payload.sellerId,
+        tonumber(payload.originalPrice), id
     })
     return ok(true)
 end)

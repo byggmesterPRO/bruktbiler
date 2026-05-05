@@ -10,6 +10,7 @@ type Car = {
     mileage: number; image: string; description: string; status: string;
     listingType: string; sellerTlfnr?: string | null;
     transferFee?: number;
+    originalPrice?: number | null;
     images?: { id: number; url: string }[];
     wishlisted?: boolean;
     reservation?: { id: number; user_id: number; deposit: number; expires_at: string; tlfnr: string } | null;
@@ -132,6 +133,13 @@ export default function CarDetail({ id, onBack }: { id: number; onBack: () => vo
             <p className="detail-sub">{car.year} • {formatKm(car.mileage)}</p>
 
             <div className="detail-price">{formatNok(car.price)}</div>
+            {car.originalPrice && car.originalPrice > car.price && (
+                <div className="savings-pill">
+                    Nypris {formatNok(car.originalPrice)} · du sparer{' '}
+                    <strong>{formatNok(car.originalPrice - car.price)}</strong>{' '}
+                    ({Math.round((1 - car.price / car.originalPrice) * 100)}%)
+                </div>
+            )}
 
             <div className="spec-grid">
                 <div className="spec"><div className="spec-label">Arsmodell</div><div className="spec-value">{car.year}</div></div>

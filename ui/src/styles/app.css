@@ -390,8 +390,19 @@
     font-size: 1.6rem;
     color: var(--gold);
     font-weight: 600;
-    margin: 0.6rem 0;
+    margin: 0.6rem 0 0.3rem;
 }
+.savings-pill {
+    display: inline-block;
+    background: rgba(74, 222, 128, 0.10);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    color: #b6ffcd;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    margin-bottom: 0.5rem;
+}
+.savings-pill strong { color: var(--success); font-weight: 600; }
 
 .spec-grid {
     display: grid;
@@ -551,6 +562,78 @@
 }
 
 .dev-wrapper { display: flex; align-items: center; justify-content: center; height: 100vh; background: #050507; }
+
+/* ----- Mode switch (Bruktbil / Katalog) ----- */
+.mode-switch {
+    display: flex;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px;
+    margin-bottom: 0.7rem;
+}
+.mode-switch button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    border-radius: 999px;
+    transition: all 0.18s;
+    letter-spacing: 0.05em;
+}
+.mode-switch button.active {
+    background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+    color: #18130b;
+    font-weight: 600;
+}
+
+/* ----- Firma strip ----- */
+.firma-strip {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding: 0.3rem 0 0.7rem;
+    margin-bottom: 0.4rem;
+}
+.firma-strip button {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.firma-strip button.active {
+    background: rgba(212,175,55,0.12);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.firma-count {
+    background: rgba(255,255,255,0.06);
+    padding: 0 0.35rem;
+    border-radius: 8px;
+    font-size: 0.65rem;
+}
+
+/* ----- Catalog cards ----- */
+.catalog-card { display: flex; flex-direction: column; margin-bottom: 0.6rem; }
+.catalog-card img {
+    width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--bg-3);
+}
+.catalog-card-body { padding: 0.65rem 0.8rem 0.8rem; }
+.catalog-card-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.catalog-card-title {
+    font-family: var(--display); font-weight: 600; font-size: 1rem;
+}
 
 /* ----- Search + filter ----- */
 
